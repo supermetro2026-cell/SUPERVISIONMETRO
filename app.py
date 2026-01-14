@@ -170,15 +170,22 @@ resumen = g.agg(
 
 
 
-horas_prod = (resumen["Tiempo_Logueado"] - resumen["Tiempo_No_Listo"]).dt.total_seconds() / 3600
-resumen["Prom. Contestadas x Hora"] = (resumen["Contestadas"] / horas_prod).round(0).astype(int)
+horas_prod = (
+    resumen["Tiempo_Logueado"] - resumen["Tiempo_No_Listo"]
+).dt.total_seconds() / 3600
 
 resumen["Prom. Contestadas x Hora"] = (
     resumen["Contestadas"] / horas_prod
-).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0
-).fillna(0
-).round(0
-).astype(int)
+)
+
+resumen["Prom. Contestadas x Hora"] = (
+    resumen["Prom. Contestadas x Hora"]
+    .fillna(0)          # cubre NaN
+    .replace(float("inf"), 0)  # cubre división por 0
+    .round(0)
+    .astype(int)
+)
+
 
 resumen["Prom. Tiempo Logueado"] = resumen["Tiempo_Logueado"] / resumen["Dias_trabajados"]
 resumen["Prom. Tiempo ACW"] = resumen["Tiempo_ACW"] / resumen["Dias_trabajados"]
