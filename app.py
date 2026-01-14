@@ -49,16 +49,13 @@ def fmt(td):
     return f"{s//3600:02}:{(s%3600)//60:02}:{s%60:02}"
 
 # ==================================================
-# CARGA CSV REAL
+# CARGA CSV
 # ==================================================
 @st.cache_data
 def cargar_datos(url):
     df = pd.read_csv(url, sep=";", encoding="latin1")
-
-    # Fecha
     df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
 
-    # Tiempos a timedelta
     columnas_tiempo = [
         "Tiempo en Llamadas Contestadas",
         "Tiempo Logueado",
@@ -74,7 +71,7 @@ def cargar_datos(url):
 df = cargar_datos(st.secrets["DATA_METRO_URL"])
 
 # ==================================================
-# FILTROS
+# EXCLUSIÓN DE SUPERVISORES
 # ==================================================
 SUP_EXCL = {
     "ADICIONALES SDF","ROJAS","DIAZ","PORRAS",
@@ -82,20 +79,23 @@ SUP_EXCL = {
 }
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
 
+# ==================================================
+# FILTROS
+# ==================================================
 col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.session_state.rol == "supervisor":
-        sup = st.session_state.grupo
-        st.info(f"Supervisor: {sup}")
+        sup_sel = st.session_state.grupo
+        st.info(f"Supervisor: {sup_sel}")
     else:
-        sup = st.selectbox("Supervisor", sorted(df["SUPERVISOR"].unique()))
+        sup_sel = st.selectbox("Supervisor", sorted(df["SUPERVISOR"].unique()))
 
 with col2:
     anio = st.selectbox("Año", sorted(df["Fecha"].dt.year.unique()))
 
 with col3:
-    mes = st.selectbox(
+    mes_nombre = st.selectbox(
         "Mes",
         ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
          "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
@@ -104,19 +104,41 @@ with col3:
 mes_num = {
     "Enero":1,"Febrero":2,"Marzo":3,"Abril":4,"Mayo":5,"Junio":6,
     "Julio":7,"Agosto":8,"Septiembre":9,"Octubre":10,"Noviembre":11,"Diciembre":12
-}[mes]
+}[mes_nombre]
 
-df = df[
-    (df["SUPERVISOR"] == sup) &
+# ==================================================
+# FILTRO BASE MES / AÑO (SIN SUPERVISOR)
+# ==================================================
+df_mes = df[
     (df["Fecha"].dt.year == anio) &
     (df["Fecha"].dt.month == mes_num)
 ]
 
 # ==================================================
-# AGRUPACIÓN DIARIA (CLAVE)
+# SUPERVISOR DOMINANTE POR ASISTENTE
+# ==================================================
+dominante = (
+    df_mes
+    .groupby(["Nombre de Usuario", "SUPERVISOR"])["Fecha"]
+    .nunique()
+    .reset_index(name="dias")
+    .sort_values("dias", ascending=False)
+    .drop_duplicates("Nombre de Usuario")
+)
+
+asistentes_validos = dominante[
+    dominante["SUPERVISOR"] == sup_sel
+]["Nombre de Usuario"]
+
+df_final = df_mes[
+    df_mes["Nombre de Usuario"].isin(asistentes_validos)
+]
+
+# ==================================================
+# AGRUPACIÓN DIARIA
 # ==================================================
 df_dia = (
-    df
+    df_final
     .groupby(["Nombre de Usuario", "Fecha"])
     .agg(
         Contestadas=("Llamadas Contestadas", "sum"),
@@ -132,7 +154,7 @@ df_dia = (
 )
 
 # ==================================================
-# RESUMEN MENSUAL POR ASISTENTE
+# RESUMEN MENSUAL
 # ==================================================
 g = df_dia.groupby("Nombre de Usuario")
 
@@ -174,23 +196,16 @@ for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
     mensual[c] = mensual[c].apply(fmt)
 
 # ==================================================
-# TOTAL DEL GRUPO (SEPARADO)
+# TOTAL DEL GRUPO
 # ==================================================
-
 total_dias = mensual["Dias_trabajados"].sum()
 
 total = pd.DataFrame([{
     "Nombre de Usuario": "TOTAL GRUPO",
     "Contestadas": mensual["Contestadas"].sum(),
     "Dias_trabajados": total_dias,
-    "Prom. Contestadas": (
-        round(mensual["Contestadas"].sum() / total_dias)
-        if total_dias > 0 else 0
-    ),
-    "Prom. Contestadas x Hora": (
-        round(mensual["Prom. Contestadas x Hora"].mean())
-        if not mensual["Prom. Contestadas x Hora"].isna().all() else 0
-    ),
+    "Prom. Contestadas": round(mensual["Contestadas"].sum()/total_dias) if total_dias else 0,
+    "Prom. Contestadas x Hora": round(mensual["Prom. Contestadas x Hora"].mean()),
     "Prom. Tiempo Logueado": fmt(df_dia["Tiempo_Logueado"].mean()),
     "Prom. Tiempo ACW": fmt(df_dia["Tiempo_ACW"].mean()),
     "Prom. Tiempo Listo": fmt(df_dia["Tiempo_Listo"].mean()),
