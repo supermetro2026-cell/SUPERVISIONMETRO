@@ -120,6 +120,9 @@ def cargar_datos(url):
     return df
 
 df = cargar_datos(DATA_METRO_URL)
+st.success("CSV cargado OK")
+st.write(df.head())
+st.write(df.columns.tolist())
 
 # ==================================================
 # CONVERSIÓN DE TIEMPOS
