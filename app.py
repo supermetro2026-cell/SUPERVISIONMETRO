@@ -184,7 +184,11 @@ mensual = g.agg(
     TMO=("Tiempo_Contestadas","mean"),
 ).reset_index()
 
-# Horas productivas reales por asistente
+# ============================
+# PROMEDIO DE CONTESTADAS POR HORA (CORRECTO)
+# ============================
+
+# Horas productivas reales por asistente (índice = Nombre de Usuario)
 horas_prod = (
     df_dia
     .assign(horas_prod=lambda x: x["Tiempo_Logueado"] - x["Tiempo_No_Listo"])
@@ -192,22 +196,10 @@ horas_prod = (
     .sum()
     .dt.total_seconds()
     .div(3600)
-    .reset_index(name="Horas_Productivas")
 )
 
-# Merge con resumen mensual
-mensual = mensual.merge(horas_prod, on="Nombre de Usuario", how="left")
-
-mensual["Prom. Contestadas x Hora"] = (
-    mensual["Contestadas"]
-    .div(mensual["Horas_Productivas"])
-    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0)
-    .fillna(0)
-    .round(0)
-    .astype(int)
-)
-
-
+# Alinear por índice (CLAVE)
+mensual = mensual.set_index("Nombre de Usuario")
 
 mensual["Prom. Contestadas x Hora"] = (
     mensual["Contestadas"]
@@ -217,6 +209,9 @@ mensual["Prom. Contestadas x Hora"] = (
     .round(0)
     .astype(int)
 )
+
+mensual = mensual.reset_index()
+
 
 for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
     mensual[c] = mensual[c].apply(fmt)
