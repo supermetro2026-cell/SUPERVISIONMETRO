@@ -217,11 +217,29 @@ dominante = (
 
 dominante = dominante[dominante["SUPERVISOR"] == supervisor_sel]
 df_final = df_mes[df_mes["Nombre de Usuario"].isin(dominante["Nombre de Usuario"])]
+# ==================================================
+# CONSOLIDADO DIARIO POR ASISTENTE
+# ==================================================
+df_diario_base = (
+    df_final
+    .groupby(["Nombre de Usuario", "Fecha"])
+    .agg(
+        Llamadas_Contestadas=("Llamadas Contestadas", "sum"),
+        Tiempo_Logueado=("Tiempo Logueado", "sum"),
+        Tiempo_ACW=("Tiempo ACW", "sum"),
+        Tiempo_Listo=("Tiempo Estado Listo", "sum"),
+        Tiempo_No_Listo=("Tiempo Estado No Listo", "sum"),
+        Reenvios_cola=("Re envios a la cola", "sum"),
+        Transferencias=("Transferencias Realizadas", "sum"),
+        Tiempo_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
+    )
+    .reset_index()
+)
 
 # ==================================================
 # RESUMEN MENSUAL
 # ==================================================
-g = df_final.groupby("Nombre de Usuario")
+g = df_diario_base.groupby("Nombre de Usuario")
 
 resumen = g.agg(
     Contestadas=("Llamadas Contestadas", "sum"),
