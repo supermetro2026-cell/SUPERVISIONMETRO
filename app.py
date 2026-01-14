@@ -5,63 +5,32 @@ from datetime import time
 # ==================================================
 # CONFIG
 # ==================================================
-st.set_page_config(
-    page_title="Supervisión – DATA METRO",
-    layout="wide"
-)
+st.set_page_config(page_title="Supervisión – DATA METRO", layout="wide")
 
 # ==================================================
-# USUARIOS
+# LOGIN (sin cambios)
 # ==================================================
 USUARIOS = {
-    "simone": {"password": "simonem2026", "rol": "supervisor", "grupo": "SIMONE"},
-    "gonzalezf": {"password": "gonzalezf123", "rol": "supervisor", "grupo": "GONZALEZ F"},
     "carranza": {"password": "carranza2026", "rol": "supervisor", "grupo": "CARRANZA"},
-    "lazarte": {"password": "lazarten2026", "rol": "supervisor", "grupo": "LAZARTE"},
-    "delgado": {"password": "delgado123", "rol": "supervisor", "grupo": "DELGADO"},
-    "gonzalezcompany": {"password": "gonzalezc1", "rol": "supervisor", "grupo": "GONZALEZ COMPANY"},
-    "fernandez": {"password": "fernandezp2026", "rol": "supervisor", "grupo": "FERNANDEZ P"},
-    "gerez": {"password": "gerez123", "rol": "supervisor", "grupo": "GEREZ"},
-    "graf": {"password": "agraf2026", "rol": "supervisor", "grupo": "GRAF"},
-    "vexenat": {"password": "vexenat123", "rol": "supervisor", "grupo": "VEXENAT"},
-    "zavaroni": {"password": "zavaroni2026", "rol": "supervisor", "grupo": "ZAVARONI"},
     "jefatura": {"password": "admin123", "rol": "jefe"},
 }
 
-# ==================================================
-# LOGIN
-# ==================================================
 if "login_ok" not in st.session_state:
     st.session_state.login_ok = False
 
 if not st.session_state.login_ok:
     st.title("🔐 Ingreso – Supervisión DATA METRO")
-
-    usuario = st.text_input("Usuario")
-    password = st.text_input("Contraseña", type="password")
-
+    u = st.text_input("Usuario")
+    p = st.text_input("Contraseña", type="password")
     if st.button("Ingresar"):
-        if usuario in USUARIOS and USUARIOS[usuario]["password"] == password:
+        if u in USUARIOS and USUARIOS[u]["password"] == p:
             st.session_state.login_ok = True
-            st.session_state.usuario = usuario
-            st.session_state.rol = USUARIOS[usuario]["rol"]
-            st.session_state.grupo = USUARIOS[usuario].get("grupo")
+            st.session_state.rol = USUARIOS[u]["rol"]
+            st.session_state.grupo = USUARIOS[u].get("grupo")
             st.rerun()
         else:
-            st.error("Usuario o contraseña incorrectos")
-
+            st.error("Credenciales incorrectas")
     st.stop()
-
-# ==================================================
-# HEADER
-# ==================================================
-st.title("Supervisión – DATA METRO")
-
-colA, colB = st.columns([4, 1])
-with colB:
-    if st.button("Salir"):
-        st.session_state.clear()
-        st.rerun()
 
 # ==================================================
 # FUNCIONES
@@ -69,8 +38,6 @@ with colB:
 def excel_time_to_timedelta(x):
     if pd.isna(x):
         return pd.Timedelta(0)
-    if isinstance(x, time):
-        return pd.Timedelta(hours=x.hour, minutes=x.minute, seconds=x.second)
     try:
         return pd.to_timedelta(x)
     except:
@@ -79,33 +46,36 @@ def excel_time_to_timedelta(x):
 def fmt(td):
     if pd.isna(td):
         return ""
-    total = int(td.total_seconds())
-    h = total // 3600
-    m = (total % 3600) // 60
-    s = total % 60
-    return f"{h:02}:{m:02}:{s:02}"
+    s = int(td.total_seconds())
+    return f"{s//3600:02}:{(s%3600)//60:02}:{s%60:02}"
 
 # ==================================================
-# CARGA CSV GOOGLE DRIVE
+# CARGA CSV
 # ==================================================
-@st.cache_data(show_spinner="Cargando datos...")
+@st.cache_data
 def cargar_datos(url):
-    df = pd.read_csv(
-        url,
-        sep=";",
-        encoding="latin1"
-    )
+    df = pd.read_csv(url, sep=";", encoding="latin1")
+    df.columns = df.columns.str.strip().str.lower()
 
-    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+    df = df.rename(columns={
+        "nombre de usuario": "Nombre de Usuario",
+        "supervisor": "SUPERVISOR",
+        "fecha": "Fecha",
+        "contestadas": "Contestadas",
+        "tiempo en contestadas": "Tiempo en Contestadas",
+        "tiempo logueado": "Tiempo Logueado",
+        "tiempo acw": "Tiempo ACW",
+        "tiempo listo": "Tiempo Listo",
+        "tiempo no listo": "Tiempo No Listo",
+        "reenvios a cola": "Reenvios",
+        "transferencias realizadas": "Transferencias",
+    })
 
-    df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True, errors="coerce")
+    df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
 
     for c in [
-        "Tiempo en Llamadas Contestadas",
-        "Tiempo Logueado",
-        "Tiempo ACW",
-        "Tiempo Estado Listo",
-        "Tiempo Estado No Listo",
+        "Tiempo en Contestadas","Tiempo Logueado","Tiempo ACW",
+        "Tiempo Listo","Tiempo No Listo"
     ]:
         df[c] = df[c].apply(excel_time_to_timedelta)
 
@@ -116,130 +86,97 @@ df = cargar_datos(st.secrets["DATA_METRO_URL"])
 # ==================================================
 # FILTROS
 # ==================================================
-st.markdown("## Filtros")
+SUP_EXCL = {"ADICIONALES SDF","ROJAS","DIAZ","PORRAS","PAROLA","PAROLA-MUSSON"}
+
+df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.session_state.rol == "supervisor":
-        supervisor_sel = st.session_state.grupo
-        st.info(f"Grupo: {supervisor_sel}")
+        sup = st.session_state.grupo
+        st.info(f"Supervisor: {sup}")
     else:
-        supervisor_sel = st.selectbox(
-            "Supervisor",
-            sorted(df["SUPERVISOR"].dropna().unique())
-        )
+        sup = st.selectbox("Supervisor", sorted(df["SUPERVISOR"].unique()))
 
 with col2:
-    anio = st.selectbox("Año", sorted(df["Fecha"].dt.year.dropna().unique()))
+    anio = st.selectbox("Año", sorted(df["Fecha"].dt.year.unique()))
 
 with col3:
-    mes = st.selectbox(
-        "Mes",
-        ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
-         "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
-    )
+    mes = st.selectbox("Mes", range(1,13))
 
-mes_num = {
-    "Enero":1,"Febrero":2,"Marzo":3,"Abril":4,"Mayo":5,"Junio":6,
-    "Julio":7,"Agosto":8,"Septiembre":9,"Octubre":10,"Noviembre":11,"Diciembre":12
-}[mes]
-
-df_mes = df[
-    (df["SUPERVISOR"] == supervisor_sel) &
+df = df[
+    (df["SUPERVISOR"] == sup) &
     (df["Fecha"].dt.year == anio) &
-    (df["Fecha"].dt.month == mes_num)
+    (df["Fecha"].dt.month == mes)
 ]
 
 # ==================================================
 # RESUMEN MENSUAL
 # ==================================================
-g = df_mes.groupby("Nombre de Usuario")
+g = df.groupby("Nombre de Usuario")
 
-resumen = g.agg(
-    Contestadas=("Llamadas Contestadas", "sum"),
-    Dias_trabajados=("Fecha", "nunique"),
-    Tiempo_Logueado=("Tiempo Logueado", "sum"),
-    Tiempo_ACW=("Tiempo ACW", "sum"),
-    Tiempo_Listo=("Tiempo Estado Listo", "sum"),
-    Tiempo_No_Listo=("Tiempo Estado No Listo", "sum"),
-    Reenvios_cola=("Re envios a la cola", "sum"),
-    Transferencias=("Transferencias Realizadas", "sum"),
-    Tiempo_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
+mensual = g.agg(
+    Contestadas=("Contestadas","sum"),
+    Dias_trabajados=("Fecha","nunique"),
+    Reenvios=("Reenvios","sum"),
+    Transferencias=("Transferencias","sum"),
+    Prom_T_Log=("Tiempo Logueado","mean"),
+    Prom_T_ACW=("Tiempo ACW","mean"),
+    Prom_T_Listo=("Tiempo Listo","mean"),
+    Prom_T_No_Listo=("Tiempo No Listo","mean"),
+    TMO=("Tiempo en Contestadas","mean"),
 ).reset_index()
 
+horas_prod = (mensual["Prom_T_Log"] - mensual["Prom_T_No_Listo"]).dt.total_seconds()/3600
+mensual["Prom. Contestadas x Hora"] = (mensual["Contestadas"]/horas_prod).round(0)
 
+mensual["Prom. Contestadas"] = (mensual["Contestadas"]/mensual["Dias_trabajados"]).round(0)
 
-horas_prod = (
-    resumen["Tiempo_Logueado"] - resumen["Tiempo_No_Listo"]
-).dt.total_seconds() / 3600
-
-resumen["Prom. Contestadas x Hora"] = (
-    resumen["Contestadas"] / horas_prod
-)
-
-resumen["Prom. Contestadas x Hora"] = (
-    resumen["Prom. Contestadas x Hora"]
-    .fillna(0)          # cubre NaN
-    .replace(float("inf"), 0)  # cubre división por 0
-    .round(0)
-    .astype(int)
-)
-
-
-resumen["Prom. Tiempo Logueado"] = resumen["Tiempo_Logueado"] / resumen["Dias_trabajados"]
-resumen["Prom. Tiempo ACW"] = resumen["Tiempo_ACW"] / resumen["Dias_trabajados"]
-resumen["Prom. Tiempo Listo"] = resumen["Tiempo_Listo"] / resumen["Dias_trabajados"]
-resumen["Prom. Tiempo No Listo"] = resumen["Tiempo_No_Listo"] / resumen["Dias_trabajados"]
-resumen["TMO"] = resumen["Tiempo_Contestadas"] / resumen["Contestadas"]
-
-for c in [
-    "Prom. Tiempo Logueado",
-    "Prom. Tiempo ACW",
-    "Prom. Tiempo Listo",
-    "Prom. Tiempo No Listo",
-    "TMO",
-]:
-    resumen[c] = resumen[c].apply(fmt)
+# formato
+for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
+    mensual[c] = mensual[c].apply(fmt)
 
 # ==================================================
 # TOTAL GRUPO
 # ==================================================
-st.markdown("### Total del grupo")
-st.dataframe(resumen, hide_index=True)
+total = pd.DataFrame([{
+    "Nombre de Usuario": "TOTAL GRUPO",
+    "Contestadas": mensual["Contestadas"].sum(),
+    "Dias_trabajados": mensual["Dias_trabajados"].sum(),
+    "Prom. Contestadas": round(mensual["Contestadas"].sum()/mensual["Dias_trabajados"].sum()),
+    "Prom. Contestadas x Hora": round(mensual["Prom. Contestadas x Hora"].mean()),
+    "Prom. Tiempo Logueado": fmt(pd.to_timedelta(mensual["Prom_T_Log"]).mean()),
+    "Prom. Tiempo ACW": fmt(pd.to_timedelta(mensual["Prom_T_ACW"]).mean()),
+    "Prom. Tiempo Listo": fmt(pd.to_timedelta(mensual["Prom_T_Listo"]).mean()),
+    "Prom. Tiempo No Listo": fmt(pd.to_timedelta(mensual["Prom_T_No_Listo"]).mean()),
+    "Reenvios": mensual["Reenvios"].sum(),
+    "Transferencias": mensual["Transferencias"].sum(),
+    "TMO": fmt(pd.to_timedelta(mensual["TMO"]).mean()),
+}])
+
+# ==================================================
+# SALIDA
+# ==================================================
+st.markdown("## 🔹 Total del grupo")
+st.dataframe(total, hide_index=True)
+
+st.markdown("## 🔹 Resumen mensual por asistente")
+st.dataframe(
+    mensual.sort_values("Contestadas", ascending=False),
+    hide_index=True
+)
 
 # ==================================================
 # DETALLE DIARIO
 # ==================================================
 st.markdown("## 📆 Detalle diario por asistente")
 
-asistente = st.selectbox(
-    "Asistente",
-    sorted(resumen["Nombre de Usuario"].unique())
-)
+asist = st.selectbox("Asistente", sorted(df["Nombre de Usuario"].unique()))
+df_d = df[df["Nombre de Usuario"] == asist].copy()
+df_d["Fecha"] = df_d["Fecha"].dt.strftime("%d/%m/%Y")
 
-df_dia = df_mes[df_mes["Nombre de Usuario"] == asistente]
+for c in ["Tiempo en Contestadas","Tiempo Logueado","Tiempo ACW","Tiempo Listo","Tiempo No Listo"]:
+    df_d[c] = df_d[c].apply(fmt)
 
-df_dia = df_dia.groupby("Fecha").agg(
-    Llamadas_Contestadas=("Llamadas Contestadas", "sum"),
-    Tiempo_Logueado=("Tiempo Logueado", "sum"),
-    Tiempo_ACW=("Tiempo ACW", "sum"),
-    Tiempo_Listo=("Tiempo Estado Listo", "sum"),
-    Tiempo_No_Listo=("Tiempo Estado No Listo", "sum"),
-).reset_index()
-
-horas = (df_dia["Tiempo_Logueado"] - df_dia["Tiempo_No_Listo"]).dt.total_seconds() / 3600
-df_dia["Prom. Contestadas x Hora"] = (
-    df_dia["Llamadas_Contestadas"] / horas
-).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0
-).fillna(0
-).round(0
-).astype(int)
-
-
-df_dia["Fecha"] = df_dia["Fecha"].dt.strftime("%d/%m/%Y")
-
-for c in ["Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
-    df_dia[c] = df_dia[c].apply(fmt)
-
-st.dataframe(df_dia, hide_index=True)
+st.dataframe(df_d.sort_values("Fecha"), hide_index=True)
