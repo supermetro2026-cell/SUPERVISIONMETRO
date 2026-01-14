@@ -86,6 +86,7 @@ ASIST_EXCL = {
     "Delgado Claudia",
     "Gonzalez Company Malena",
     "Parola Federico Javier",
+    "Funes Victoria",
 }
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
 df = df[~df["Nombre de Usuario"].isin(ASIST_EXCL)]
