@@ -183,6 +183,8 @@ mensual = g.agg(
     Prom_T_No_Listo=("Tiempo_No_Listo","mean"),
     TMO=("Tiempo_Contestadas","mean"),
 ).reset_index()
+
+
 # ==================================================
 # ORDEN DE COLUMNAS – SOLO PARA MOSTRAR
 # ==================================================
@@ -201,12 +203,20 @@ COLUMNAS_MENSUAL = [
     "Transferencias",
 ]
 
+COLUMNAS_MENSUAL_OK = [
+    c for c in COLUMNAS_MENSUAL if c in mensual.columns
+]
+
 st.markdown("## 🔹 Resumen mensual por asistente")
+
+
 st.dataframe(
     mensual
-    .sort_values("Contestadas", ascending=False)[COLUMNAS_MENSUAL],
-    hide_index=True
+    .sort_values("Contestadas", ascending=False)[COLUMNAS_MENSUAL_OK],
+    hide_index=True,
+    use_container_width=True
 )
+
 
 # ============================
 # PROMEDIO DE CONTESTADAS POR HORA (CORRECTO)
