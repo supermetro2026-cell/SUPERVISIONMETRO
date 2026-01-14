@@ -80,6 +80,7 @@ SUP_EXCL = {
 
 ASIST_EXCL = {
     "Laurenzano Renzo",
+    "Carranza Fernando",
     "Graf Alejandro",
     "Alvarez Camila",
     "Delgado Claudia",
