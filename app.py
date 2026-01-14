@@ -94,6 +94,9 @@ def fmt(td):
 # ==================================================
 # CARGA DE DATOS DESDE GOOGLE DRIVE (CSV) – ROBUSTO
 # ==================================================
+
+DATA_METRO_URL = st.secrets["DATA_METRO_URL"]
+
 @st.cache_data(show_spinner="Cargando datos...")
 def cargar_datos(url):
     df = pd.read_csv(
