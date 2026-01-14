@@ -276,9 +276,12 @@ st.dataframe(total, hide_index=True)
 
 st.markdown("## 🔹 Resumen mensual por asistente")
 st.dataframe(
-    mensual.sort_values("Contestadas", ascending=False),
-    hide_index=True
+    mensual
+    .sort_values("Contestadas", ascending=False)[COLUMNAS_MENSUAL],
+    hide_index=True,
+    use_container_width=True
 )
+
 
 # ==================================================
 # DETALLE DIARIO POR ASISTENTE
