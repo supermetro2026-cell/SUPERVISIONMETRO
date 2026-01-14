@@ -87,7 +87,6 @@ ASIST_EXCL = {
     "Gonzalez Company Malena",
     "Parola Federico Javier",
 }
-
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
 df = df[~df["Nombre de Usuario"].isin(ASIST_EXCL)]
 
@@ -211,14 +210,22 @@ for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
 # ==================================================
 # TOTAL DEL GRUPO
 # ==================================================
+
 total_dias = mensual["Dias_trabajados"].sum()
 
 total = pd.DataFrame([{
     "Nombre de Usuario": "TOTAL GRUPO",
     "Contestadas": mensual["Contestadas"].sum(),
     "Dias_trabajados": total_dias,
-    "Prom. Contestadas": round(mensual["Contestadas"].sum()/total_dias) if total_dias else 0,
-    "Prom. Contestadas x Hora": round(mensual["Prom. Contestadas x Hora"].mean()),
+    "Prom. Contestadas": (
+        round(mensual["Contestadas"].sum() / total_dias)
+        if total_dias > 0 else 0
+    ),
+    "Prom. Contestadas x Hora": (
+        int(mensual["Prom. Contestadas x Hora"].mean())
+        if not mensual["Prom. Contestadas x Hora"].isna().all()
+        else 0
+    ),
     "Prom. Tiempo Logueado": fmt(df_dia["Tiempo_Logueado"].mean()),
     "Prom. Tiempo ACW": fmt(df_dia["Tiempo_ACW"].mean()),
     "Prom. Tiempo Listo": fmt(df_dia["Tiempo_Listo"].mean()),
