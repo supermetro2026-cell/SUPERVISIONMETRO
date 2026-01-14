@@ -71,17 +71,24 @@ def cargar_datos(url):
         "transferencias realizadas": "Transferencias",
     })
 
-    df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
+df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
 
-    for c in [
-        "Tiempo en Contestadas","Tiempo Logueado","Tiempo ACW",
-        "Tiempo Listo","Tiempo No Listo"
-    ]:
+COLUMNAS_TIEMPO = [
+    "Tiempo en Contestadas",
+    "Tiempo Logueado",
+    "Tiempo ACW",
+    "Tiempo Listo",
+    "Tiempo No Listo",
+]
+
+for c in COLUMNAS_TIEMPO:
+    if c in df.columns:
         df[c] = df[c].apply(excel_time_to_timedelta)
 
-    return df
-
 df = cargar_datos(st.secrets["DATA_METRO_URL"])
+
+st.write("Columnas cargadas:", df.columns.tolist())
+st.stop()
 
 # ==================================================
 # FILTROS
