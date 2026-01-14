@@ -168,10 +168,17 @@ resumen = g.agg(
     Tiempo_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
 ).reset_index()
 
-resumen["Prom. Contestadas"] = (resumen["Contestadas"] / resumen["Dias_trabajados"]).round(0).astype(int)
+
 
 horas_prod = (resumen["Tiempo_Logueado"] - resumen["Tiempo_No_Listo"]).dt.total_seconds() / 3600
 resumen["Prom. Contestadas x Hora"] = (resumen["Contestadas"] / horas_prod).round(0).astype(int)
+
+resumen["Prom. Contestadas x Hora"] = (
+    resumen["Contestadas"] / horas_prod
+).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0
+).fillna(0
+).round(0
+).astype(int)
 
 resumen["Prom. Tiempo Logueado"] = resumen["Tiempo_Logueado"] / resumen["Dias_trabajados"]
 resumen["Prom. Tiempo ACW"] = resumen["Tiempo_ACW"] / resumen["Dias_trabajados"]
@@ -215,7 +222,13 @@ df_dia = df_dia.groupby("Fecha").agg(
 ).reset_index()
 
 horas = (df_dia["Tiempo_Logueado"] - df_dia["Tiempo_No_Listo"]).dt.total_seconds() / 3600
-df_dia["Prom. Contestadas x Hora"] = (df_dia["Llamadas_Contestadas"] / horas).round(0).astype(int)
+df_dia["Prom. Contestadas x Hora"] = (
+    df_dia["Llamadas_Contestadas"] / horas
+).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0
+).fillna(0
+).round(0
+).astype(int)
+
 
 df_dia["Fecha"] = df_dia["Fecha"].dt.strftime("%d/%m/%Y")
 
