@@ -7,7 +7,7 @@ import pandas as pd
 st.set_page_config(page_title="Supervisión – DATA METRO", layout="wide")
 
 # ==================================================
-# LOGIN SIMPLE
+# LOGIN
 # ==================================================
 USUARIOS = {
     "carranza": {"password": "carranza2026", "rol": "supervisor", "grupo": "CARRANZA"},
@@ -72,7 +72,7 @@ def cargar_datos(url):
 df = cargar_datos(st.secrets["DATA_METRO_URL"])
 
 # ==================================================
-# Asistentes excluidos del análisis (supervisores / pruebas)
+# EXCLUSIONES
 # ==================================================
 SUP_EXCL = {
     "ADICIONALES SDF","ROJAS","DIAZ","PORRAS",
@@ -80,18 +80,14 @@ SUP_EXCL = {
 }
 
 ASIST_EXCL = {
-    "Laurenzano Renzo",
-    "Carranza Fernando",
-    "Graf Alejandro",
-    "Alvarez Camila",
-    "Delgado Claudia",
-    "Gonzalez Company Malena",
-    "Parola Federico Javier",
+    "Laurenzano Renzo","Carranza Fernando","Graf Alejandro",
+    "Alvarez Camila","Delgado Claudia",
+    "Gonzalez Company Malena","Parola Federico Javier",
     "Funes Victoria",
 }
+
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
 df = df[~df["Nombre de Usuario"].isin(ASIST_EXCL)]
-
 
 # ==================================================
 # FILTROS
@@ -121,7 +117,7 @@ mes_num = {
 }[mes_nombre]
 
 # ==================================================
-# FILTRO BASE MES / AÑO (SIN SUPERVISOR)
+# FILTRO MES
 # ==================================================
 df_mes = df[
     (df["Fecha"].dt.year == anio) &
@@ -129,7 +125,7 @@ df_mes = df[
 ]
 
 # ==================================================
-# SUPERVISOR DOMINANTE POR ASISTENTE
+# SUPERVISOR DOMINANTE
 # ==================================================
 dominante = (
     df_mes
@@ -144,9 +140,7 @@ asistentes_validos = dominante[
     dominante["SUPERVISOR"] == sup_sel
 ]["Nombre de Usuario"]
 
-df_final = df_mes[
-    df_mes["Nombre de Usuario"].isin(asistentes_validos)
-]
+df_final = df_mes[df_mes["Nombre de Usuario"].isin(asistentes_validos)]
 
 # ==================================================
 # AGRUPACIÓN DIARIA
@@ -184,91 +178,36 @@ mensual = g.agg(
     TMO=("Tiempo_Contestadas","mean"),
 ).reset_index()
 
-
-# ==================================================
-# ORDEN DE COLUMNAS – SOLO PARA MOSTRAR
-# ==================================================
-COLUMNAS_MENSUAL = [
-    "Nombre de Usuario",
-    "Contestadas",
-    "Dias_trabajados",
-    "Prom. Contestadas",
-    "Prom. Contestadas x Hora",
-    "Prom_T_Log",
-    "Prom_T_ACW",
-    "Prom_T_Listo",
-    "Prom_T_No_Listo",
-    "TMO",
-    "Reenvios",
-    "Transferencias",
-]
-
-COLUMNAS_MENSUAL_OK = [
-    c for c in COLUMNAS_MENSUAL if c in mensual.columns
-]
-
-st.markdown("## 🔹 Resumen mensual por asistente")
-
-
-st.dataframe(
-    mensual
-    .sort_values("Contestadas", ascending=False)[COLUMNAS_MENSUAL_OK],
-    hide_index=True,
-    use_container_width=True
-)
-
-
-# ============================
-# PROMEDIO DE CONTESTADAS POR HORA (CORRECTO)
-# ============================
-
-# Horas productivas reales por asistente (índice = Nombre de Usuario)
+# Horas productivas reales
 horas_prod = (
-    df_dia
-    .assign(horas_prod=lambda x: x["Tiempo_Logueado"] - x["Tiempo_No_Listo"])
-    .groupby("Nombre de Usuario")["horas_prod"]
-    .sum()
+    (mensual["Prom_T_Log"] - mensual["Prom_T_No_Listo"])
     .dt.total_seconds()
     .div(3600)
 )
 
-# Alinear por índice (CLAVE)
-mensual = mensual.set_index("Nombre de Usuario")
+mensual["Prom. Contestadas"] = (
+    mensual["Contestadas"] / mensual["Dias_trabajados"]
+).round(0).astype(int)
 
 mensual["Prom. Contestadas x Hora"] = (
-    mensual["Contestadas"]
-    .div(horas_prod)
-    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0)
-    .fillna(0)
-    .round(0)
-    .astype(int)
-)
+    mensual["Contestadas"] / horas_prod
+).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0).fillna(0).round(0).astype(int)
 
-mensual = mensual.reset_index()
-
-
+# Formato tiempos
 for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
     mensual[c] = mensual[c].apply(fmt)
 
 # ==================================================
 # TOTAL DEL GRUPO
 # ==================================================
-
 total_dias = mensual["Dias_trabajados"].sum()
 
 total = pd.DataFrame([{
     "Nombre de Usuario": "TOTAL GRUPO",
     "Contestadas": mensual["Contestadas"].sum(),
     "Dias_trabajados": total_dias,
-    "Prom. Contestadas": (
-        round(mensual["Contestadas"].sum() / total_dias)
-        if total_dias > 0 else 0
-    ),
-    "Prom. Contestadas x Hora": (
-        int(mensual["Prom. Contestadas x Hora"].mean())
-        if not mensual["Prom. Contestadas x Hora"].isna().all()
-        else 0
-    ),
+    "Prom. Contestadas": round(mensual["Contestadas"].sum()/total_dias) if total_dias else 0,
+    "Prom. Contestadas x Hora": int(mensual["Prom. Contestadas x Hora"].mean()),
     "Prom. Tiempo Logueado": fmt(df_dia["Tiempo_Logueado"].mean()),
     "Prom. Tiempo ACW": fmt(df_dia["Tiempo_ACW"].mean()),
     "Prom. Tiempo Listo": fmt(df_dia["Tiempo_Listo"].mean()),
@@ -282,32 +221,23 @@ total = pd.DataFrame([{
 # SALIDA
 # ==================================================
 st.markdown("## 🔹 Total del grupo")
-st.dataframe(total, hide_index=True)
+st.dataframe(total, hide_index=True, use_container_width=True)
 
 st.markdown("## 🔹 Resumen mensual por asistente")
 st.dataframe(
-    mensual
-    .sort_values("Contestadas", ascending=False)[COLUMNAS_MENSUAL],
+    mensual.sort_values("Contestadas", ascending=False),
     hide_index=True,
     use_container_width=True
 )
 
-
 # ==================================================
-# DETALLE DIARIO POR ASISTENTE
+# DETALLE DIARIO
 # ==================================================
 st.markdown("## 📆 Detalle diario por asistente")
 
 asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
 detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
 
-# 🔒 Asegurar Timedelta (clave)
-for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
-    detalle[c] = pd.to_timedelta(detalle[c])
-
-# ============================
-# PRODUCTIVIDAD DIARIA
-# ============================
 horas_prod_dia = (
     (detalle["Tiempo_Logueado"] - detalle["Tiempo_No_Listo"])
     .dt.total_seconds()
@@ -315,26 +245,13 @@ horas_prod_dia = (
 )
 
 detalle["Prom. Contestadas x Hora"] = (
-    detalle["Contestadas"]
-    .div(horas_prod_dia)
-    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0)
-    .fillna(0)
-    .round(0)
-    .astype(int)
-)
+    detalle["Contestadas"] / horas_prod_dia
+).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0).fillna(0).round(0).astype(int)
 
-# ============================
-# FORMATO FINAL
-# ============================
 detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 
 for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
     detalle[c] = detalle[c].apply(fmt)
-
-st.dataframe(
-    detalle.sort_values("Fecha"),
-    hide_index=True
-)
 
 st.dataframe(
     detalle.sort_values("Fecha"),
