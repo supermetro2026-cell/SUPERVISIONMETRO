@@ -71,13 +71,25 @@ def cargar_datos(url):
 df = cargar_datos(st.secrets["DATA_METRO_URL"])
 
 # ==================================================
-# EXCLUSIÓN DE SUPERVISORES
+# Asistentes excluidos del análisis (supervisores / pruebas)
 # ==================================================
 SUP_EXCL = {
     "ADICIONALES SDF","ROJAS","DIAZ","PORRAS",
     "PAROLA","PAROLA-MUSSON"
 }
+
+ASIST_EXCL = {
+    "Laurenzano Renzo",
+    "Graf Alejandro",
+    "Alvarez Camila",
+    "Delgado Claudia",
+    "Gonzalez Company Malena",
+    "Parola Federico Javier",
+}
+
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
+df = df[~df["Nombre de Usuario"].isin(ASIST_EXCL)]
+
 
 # ==================================================
 # FILTROS
