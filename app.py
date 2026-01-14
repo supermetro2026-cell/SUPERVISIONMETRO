@@ -293,5 +293,77 @@ for c in [
 st.markdown("### Total del grupo")
 st.dataframe(total_grupo, hide_index=True)
 
+
+COLUMNAS_MOSTRAR = [
+    "Nombre de Usuario",
+    "Contestadas",
+    "Dias_trabajados",
+    "Prom. Contestadas",
+    "Prom. Contestadas x Hora",
+    "Prom. Tiempo Logueado",
+    "Prom. Tiempo ACW",
+    "Prom. Tiempo Listo",
+    "Prom. Tiempo No Listo",
+    "Reenvios_cola",
+    "Transferencias",
+    "TMO",
+]
+
 st.markdown("## Resumen mensual por asistente")
-st.dataframe(resumen.sort_values("Contestadas", ascending=False), hide_index=True)
+st.dataframe(
+    resumen
+    .sort_values("Contestadas", ascending=False)[COLUMNAS_MOSTRAR],
+    hide_index=True
+)
+
+# ==================================================
+# DETALLE DIARIO POR ASISTENTE
+# ==================================================
+st.markdown("## 📆 Detalle diario por asistente")
+
+asistente_sel = st.selectbox(
+    "Seleccionar asistente",
+    sorted(resumen["Nombre de Usuario"].unique())
+)
+
+df_diario = df_final[df_final["Nombre de Usuario"] == asistente_sel].copy()
+
+g_dia = df_diario.groupby("Fecha")
+
+df_diario = g_dia.agg(
+    Llamadas_Contestadas=("Llamadas Contestadas", "sum"),
+    Tiempo_en_Llamadas_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
+    Tiempo_Logueado=("Tiempo Logueado", "sum"),
+    Tiempo_ACW=("Tiempo ACW", "sum"),
+    Tiempo_Estado_Listo=("Tiempo Estado Listo", "sum"),
+    Tiempo_Estado_No_Listo=("Tiempo Estado No Listo", "sum"),
+    Reenvios_cola=("Re envios a la cola", "sum"),
+    Transferencias=("Transferencias Realizadas", "sum"),
+).reset_index()
+
+# productividad diaria
+horas_prod_dia = (
+    df_diario["Tiempo_Logueado"] - df_diario["Tiempo_Estado_No_Listo"]
+).dt.total_seconds() / 3600
+
+df_diario["Prom. Contestadas x Hora"] = (
+    df_diario["Llamadas_Contestadas"] / horas_prod_dia
+).round(0).fillna(0).astype(int)
+
+# formato fecha
+df_diario["Fecha"] = df_diario["Fecha"].dt.strftime("%d/%m/%Y")
+
+# formato tiempos
+for c in [
+    "Tiempo_en_Llamadas_Contestadas",
+    "Tiempo_Logueado",
+    "Tiempo_ACW",
+    "Tiempo_Estado_Listo",
+    "Tiempo_Estado_No_Listo",
+]:
+    df_diario[c] = df_diario[c].apply(fmt)
+
+st.dataframe(
+    df_diario.sort_values("Fecha"),
+    hide_index=True
+)
