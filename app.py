@@ -92,37 +92,38 @@ def fmt(td):
     return ""
 
 # ==================================================
-# CARGA DE DATOS DESDE GOOGLE DRIVE (CSV)
+# CARGA DE DATOS DESDE GOOGLE DRIVE (CSV) – ROBUSTO
 # ==================================================
-
-DATA_METRO_URL = (
-    st.secrets["DATA_METRO_URL"]
-    if "DATA_METRO_URL" in st.secrets
-    else "https://drive.google.com/uc?id=1fT6NkGCp-dWy13lQRRCBr7PrGrbYR34b"
-)
-
 @st.cache_data(show_spinner="Cargando datos...")
 def cargar_datos(url):
     df = pd.read_csv(
         url,
-        encoding="latin1",   # ← CLAVE
-        sep=","
+        encoding="latin1",
+        sep=",",
     )
 
-    # limpia nombres de columnas (espacios + caracteres invisibles)
+    # 🔑 NORMALIZACIÓN DE COLUMNAS
     df.columns = (
         df.columns
-        .str.replace("\ufeff", "", regex=False)
+        .str.replace("\ufeff", "", regex=False)  # BOM invisible
         .str.strip()
+        .str.lower()
     )
 
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+    # DEBUG TEMPORAL (no borrar todavía)
+    st.write("Columnas detectadas:", df.columns.tolist())
+
+    # 🔑 MAPEO SEGURO DE FECHA
+    if "fecha" not in df.columns:
+        st.error("❌ No se encontró la columna FECHA en el CSV")
+        st.stop()
+
+    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+
     return df
 
 df = cargar_datos(DATA_METRO_URL)
-st.success("CSV cargado OK")
-st.write(df.head())
-st.write(df.columns.tolist())
+
 
 # ==================================================
 # CONVERSIÓN DE TIEMPOS
