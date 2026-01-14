@@ -268,7 +268,10 @@ detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
     detalle[c] = detalle[c].apply(fmt)
 
-# promedio diario de contestadas por hora
+# ============================
+# PRODUCTIVIDAD DIARIA (ANTES DE FORMATEAR)
+# ============================
+
 horas_prod_dia = (
     (detalle["Tiempo_Logueado"] - detalle["Tiempo_No_Listo"])
     .dt.total_seconds()
@@ -283,5 +286,8 @@ detalle["Prom. Contestadas x Hora"] = (
     .round(0)
     .astype(int)
 )
+for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
+    detalle[c] = detalle[c].apply(fmt)
+
 
 st.dataframe(detalle.sort_values("Fecha"), hide_index=True)
