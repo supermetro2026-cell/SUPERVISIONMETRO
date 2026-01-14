@@ -92,40 +92,49 @@ def fmt(td):
     return ""
 
 # ==================================================
-# CARGA DE DATOS DESDE GOOGLE DRIVE (CSV) – ROBUSTO
+# CARGA DE DATOS DESDE GOOGLE DRIVE (CSV NORMALIZADO)
 # ==================================================
-
-DATA_METRO_URL = st.secrets["DATA_METRO_URL"]
-
 @st.cache_data(show_spinner="Cargando datos...")
 def cargar_datos(url):
     df = pd.read_csv(
         url,
-        encoding="latin1",
-        sep=",",
+        sep=";",
+        encoding="latin1"
     )
 
-    # 🔑 NORMALIZACIÓN DE COLUMNAS
+    # normaliza columnas
     df.columns = (
         df.columns
-        .str.replace("\ufeff", "", regex=False)  # BOM invisible
         .str.strip()
         .str.lower()
+        .str.replace("\ufeff", "", regex=False)
     )
 
-    # DEBUG TEMPORAL (no borrar todavía)
-    st.write("Columnas detectadas:", df.columns.tolist())
+    # renombra a lo que espera la app
+    RENOMBRES = {
+        "supervisor": "SUPERVISOR",
+        "nombre de usuario": "Nombre de Usuario",
+        "fecha": "Fecha",
+        "llamadas contestadas": "Llamadas Contestadas",
+        "tiempo en llamadas contestadas": "Tiempo en Llamadas Contestadas",
+        "tiempo logueado": "Tiempo Logueado",
+        "tiempo acw": "Tiempo ACW",
+        "tiempo estado listo": "Tiempo Estado Listo",
+        "tiempo estado no listo": "Tiempo Estado No Listo",
+        "re envios a la cola": "Re envios a la cola",
+        "transferencias realizadas": "Transferencias Realizadas",
+    }
 
-    # 🔑 MAPEO SEGURO DE FECHA
-    if "fecha" not in df.columns:
-        st.error("❌ No se encontró la columna FECHA en el CSV")
-        st.stop()
+    df = df.rename(columns=RENOMBRES)
 
-    df["fecha"] = pd.to_datetime(df["fecha"], errors="coerce")
+    # fecha
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
 
     return df
 
-df = cargar_datos(DATA_METRO_URL)
+
+df = cargar_datos(st.secrets["DATA_METRO_URL"])
+
 
 
 # ==================================================
