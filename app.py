@@ -257,21 +257,20 @@ st.dataframe(
 )
 
 # ==================================================
-# DETALLE DIARIO
+# DETALLE DIARIO POR ASISTENTE
 # ==================================================
 st.markdown("## 📆 Detalle diario por asistente")
 
 asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
 detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
-detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 
+# 🔒 Asegurar Timedelta (clave)
 for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
-    detalle[c] = detalle[c].apply(fmt)
+    detalle[c] = pd.to_timedelta(detalle[c])
 
 # ============================
-# PRODUCTIVIDAD DIARIA (ANTES DE FORMATEAR)
+# PRODUCTIVIDAD DIARIA
 # ============================
-
 horas_prod_dia = (
     (detalle["Tiempo_Logueado"] - detalle["Tiempo_No_Listo"])
     .dt.total_seconds()
@@ -286,8 +285,18 @@ detalle["Prom. Contestadas x Hora"] = (
     .round(0)
     .astype(int)
 )
+
+# ============================
+# FORMATO FINAL
+# ============================
+detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
+
 for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
     detalle[c] = detalle[c].apply(fmt)
 
+st.dataframe(
+    detalle.sort_values("Fecha"),
+    hide_index=True
+)
 
 st.dataframe(detalle.sort_values("Fecha"), hide_index=True)
