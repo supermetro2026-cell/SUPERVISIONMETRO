@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # ==================================================
-# USUARIOS (luego podés pasarlos a st.secrets)
+# USUARIOS (luego pasar a st.secrets)
 # ==================================================
 USUARIOS = {
     "simone": {"password": "simonem2026", "rol": "supervisor", "grupo": "SIMONE"},
@@ -92,17 +92,34 @@ def fmt(td):
     return ""
 
 # ==================================================
-# CARGA DE DATOS DESDE GOOGLE DRIVE
+# CARGA DE DATOS DESDE GOOGLE DRIVE (CSV)
 # ==================================================
-HOJA = "A.I. POR DIA"
+
+DATA_METRO_URL = (
+    st.secrets["DATA_METRO_URL"]
+    if "DATA_METRO_URL" in st.secrets
+    else "https://drive.google.com/uc?id=1fT6NkGCp-dWy13lQRRCBr7PrGrbYR34b"
+)
 
 @st.cache_data(show_spinner="Cargando datos...")
 def cargar_datos(url):
-    df = pd.read_excel(url, sheet_name=HOJA)
+    df = pd.read_csv(
+        url,
+        encoding="latin1",   # ← CLAVE
+        sep=","
+    )
+
+    # limpia nombres de columnas (espacios + caracteres invisibles)
+    df.columns = (
+        df.columns
+        .str.replace("\ufeff", "", regex=False)
+        .str.strip()
+    )
+
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     return df
 
-df = cargar_datos(st.secrets["DATA_METRO_URL"])
+df = cargar_datos(DATA_METRO_URL)
 
 # ==================================================
 # CONVERSIÓN DE TIEMPOS
@@ -115,14 +132,8 @@ COLUMNAS_TIEMPO = [
     "Tiempo Estado No Listo",
 ]
 
-@st.cache_data
-def convertir_tiempos(df):
-    df = df.copy()
-    for c in COLUMNAS_TIEMPO:
-        df[c] = df[c].apply(excel_time_to_timedelta)
-    return df
-
-df = convertir_tiempos(df)
+for c in COLUMNAS_TIEMPO:
+    df[c] = df[c].apply(excel_time_to_timedelta)
 
 # ==================================================
 # FILTROS
@@ -176,7 +187,7 @@ if df_mes.empty:
     st.stop()
 
 # ==================================================
-# SUPERVISOR DOMINANTE
+# SUPERVISOR DOMINANTE POR ASISTENTE
 # ==================================================
 dominante = (
     df_mes
@@ -190,51 +201,40 @@ dominante = (
 dominante = dominante[dominante["SUPERVISOR"] == supervisor_sel]
 df_final = df_mes[df_mes["Nombre de Usuario"].isin(dominante["Nombre de Usuario"])]
 
-if df_final.empty:
-    st.warning("⚠️ No hay datos para este período.")
-    st.stop()
-
-
 # ==================================================
 # RESUMEN MENSUAL
 # ==================================================
-@st.cache_data
-def resumen_mensual(df_final):
-    g = df_final.groupby("Nombre de Usuario")
+g = df_final.groupby("Nombre de Usuario")
 
-    resumen = g.agg(
-        Contestadas=("Llamadas Contestadas", "sum"),
-        Dias_trabajados=("Fecha", "nunique"),
-        Tiempo_Logueado=("Tiempo Logueado", "sum"),
-        Tiempo_ACW=("Tiempo ACW", "sum"),
-        Tiempo_Listo=("Tiempo Estado Listo", "sum"),
-        Tiempo_No_Listo=("Tiempo Estado No Listo", "sum"),
-        Reenvios_cola=("Re envios a la cola", "sum"),
-        Transferencias=("Transferencias Realizadas", "sum"),
-        Tiempo_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
-    ).reset_index()
+resumen = g.agg(
+    Contestadas=("Llamadas Contestadas", "sum"),
+    Dias_trabajados=("Fecha", "nunique"),
+    Tiempo_Logueado=("Tiempo Logueado", "sum"),
+    Tiempo_ACW=("Tiempo ACW", "sum"),
+    Tiempo_Listo=("Tiempo Estado Listo", "sum"),
+    Tiempo_No_Listo=("Tiempo Estado No Listo", "sum"),
+    Reenvios_cola=("Re envios a la cola", "sum"),
+    Transferencias=("Transferencias Realizadas", "sum"),
+    Tiempo_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
+).reset_index()
 
-    resumen["Prom. Contestadas"] = (
-        resumen["Contestadas"] / resumen["Dias_trabajados"]
-    ).round(0).fillna(0).astype(int)
+resumen["Prom. Contestadas"] = (
+    resumen["Contestadas"] / resumen["Dias_trabajados"]
+).round(0).astype(int)
 
-    horas_prod = (
-        resumen["Tiempo_Logueado"] - resumen["Tiempo_No_Listo"]
-    ).dt.total_seconds() / 3600
+horas_prod = (
+    resumen["Tiempo_Logueado"] - resumen["Tiempo_No_Listo"]
+).dt.total_seconds() / 3600
 
-    resumen["Prom. Contestadas x Hora"] = (
-        resumen["Contestadas"] / horas_prod
-    ).round(0).fillna(0).astype(int)
+resumen["Prom. Contestadas x Hora"] = (
+    resumen["Contestadas"] / horas_prod
+).round(0).astype(int)
 
-    resumen["Prom. Tiempo Logueado"] = resumen["Tiempo_Logueado"] / resumen["Dias_trabajados"]
-    resumen["Prom. Tiempo ACW"] = resumen["Tiempo_ACW"] / resumen["Dias_trabajados"]
-    resumen["Prom. Tiempo Listo"] = resumen["Tiempo_Listo"] / resumen["Dias_trabajados"]
-    resumen["Prom. Tiempo No Listo"] = resumen["Tiempo_No_Listo"] / resumen["Dias_trabajados"]
-    resumen["TMO"] = resumen["Tiempo_Contestadas"] / resumen["Contestadas"]
-
-    return resumen
-
-resumen = resumen_mensual(df_final)
+resumen["Prom. Tiempo Logueado"] = resumen["Tiempo_Logueado"] / resumen["Dias_trabajados"]
+resumen["Prom. Tiempo ACW"] = resumen["Tiempo_ACW"] / resumen["Dias_trabajados"]
+resumen["Prom. Tiempo Listo"] = resumen["Tiempo_Listo"] / resumen["Dias_trabajados"]
+resumen["Prom. Tiempo No Listo"] = resumen["Tiempo_No_Listo"] / resumen["Dias_trabajados"]
+resumen["TMO"] = resumen["Tiempo_Contestadas"] / resumen["Contestadas"]
 
 # ==================================================
 # TOTAL DEL GRUPO
@@ -259,7 +259,7 @@ total_grupo = pd.DataFrame([{
 }])
 
 # ==================================================
-# FORMATO DE TIEMPOS (MENSUAL)
+# FORMATO FINAL
 # ==================================================
 for c in [
     "Prom. Tiempo Logueado",
@@ -271,84 +271,11 @@ for c in [
     resumen[c] = resumen[c].apply(fmt)
     total_grupo[c] = total_grupo[c].apply(fmt)
 
-COLUMNAS_MOSTRAR = [
-    "Nombre de Usuario",
-    "Contestadas",
-    "Dias_trabajados",
-    "Prom. Contestadas",
-    "Prom. Contestadas x Hora",
-    "Prom. Tiempo Logueado",
-    "Prom. Tiempo ACW",
-    "Prom. Tiempo Listo",
-    "Prom. Tiempo No Listo",
-    "Reenvios_cola",
-    "Transferencias",
-    "TMO",
-]
-
 # ==================================================
-# SALIDA MENSUAL
+# SALIDA
 # ==================================================
 st.markdown("### Total del grupo")
-st.dataframe(
-    total_grupo[COLUMNAS_MOSTRAR],
-    width="stretch",
-    hide_index=True
-)
+st.dataframe(total_grupo, hide_index=True)
 
 st.markdown("## Resumen mensual por asistente")
-st.dataframe(
-    resumen.sort_values("Contestadas", ascending=False)[COLUMNAS_MOSTRAR],
-    width="stretch",
-    hide_index=True
-)
-
-# ==================================================
-# DETALLE DIARIO
-# ==================================================
-st.markdown("## 📆 Detalle diario por asistente")
-
-asistente_sel = st.selectbox(
-    "Seleccionar asistente",
-    sorted(resumen["Nombre de Usuario"].unique())
-)
-
-df_diario = df_final[df_final["Nombre de Usuario"] == asistente_sel].copy()
-
-g_dia = df_diario.groupby("Fecha")
-
-df_diario = g_dia.agg(
-    Llamadas_Contestadas=("Llamadas Contestadas", "sum"),
-    Tiempo_en_Llamadas_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
-    Tiempo_Logueado=("Tiempo Logueado", "sum"),
-    Tiempo_ACW=("Tiempo ACW", "sum"),
-    Tiempo_Estado_Listo=("Tiempo Estado Listo", "sum"),
-    Tiempo_Estado_No_Listo=("Tiempo Estado No Listo", "sum"),
-    Reenvios_cola=("Re envios a la cola", "sum"),
-    Transferencias=("Transferencias Realizadas", "sum"),
-).reset_index()
-
-horas_prod_dia = (
-    df_diario["Tiempo_Logueado"] - df_diario["Tiempo_Estado_No_Listo"]
-).dt.total_seconds() / 3600
-
-df_diario["Prom. Contestadas x Hora"] = (
-    df_diario["Llamadas_Contestadas"] / horas_prod_dia
-).round(0).fillna(0).astype(int)
-
-df_diario["Fecha"] = df_diario["Fecha"].dt.strftime("%d/%m/%Y")
-
-for c in [
-    "Tiempo_en_Llamadas_Contestadas",
-    "Tiempo_Logueado",
-    "Tiempo_ACW",
-    "Tiempo_Estado_Listo",
-    "Tiempo_Estado_No_Listo",
-]:
-    df_diario[c] = df_diario[c].apply(fmt)
-
-st.dataframe(
-    df_diario,
-    width="stretch",
-    hide_index=True
-)
+st.dataframe(resumen.sort_values("Contestadas", ascending=False), hide_index=True)
