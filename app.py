@@ -98,23 +98,23 @@ def fmt(td):
 def cargar_datos(url):
     df = pd.read_csv(
         url,
-        sep=";",
-        encoding="latin1"
+        encoding="latin1",
+        sep=";",          # ← CLAVE
+        decimal=","
     )
 
-    # normaliza columnas
+    # normalizar nombres de columnas
     df.columns = (
         df.columns
         .str.strip()
         .str.lower()
-        .str.replace("\ufeff", "", regex=False)
     )
 
-    # renombra a lo que espera la app
-    RENOMBRES = {
+    # renombrar a los nombres que usa la app
+    df = df.rename(columns={
+        "fecha": "Fecha",
         "supervisor": "SUPERVISOR",
         "nombre de usuario": "Nombre de Usuario",
-        "fecha": "Fecha",
         "llamadas contestadas": "Llamadas Contestadas",
         "tiempo en llamadas contestadas": "Tiempo en Llamadas Contestadas",
         "tiempo logueado": "Tiempo Logueado",
@@ -123,18 +123,19 @@ def cargar_datos(url):
         "tiempo estado no listo": "Tiempo Estado No Listo",
         "re envios a la cola": "Re envios a la cola",
         "transferencias realizadas": "Transferencias Realizadas",
-    }
+    })
 
-    df = df.rename(columns=RENOMBRES)
-
-    # fecha
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+    # parsear fecha correctamente
+    df["Fecha"] = pd.to_datetime(
+        df["Fecha"],
+        errors="coerce",
+        dayfirst=True
+    )
 
     return df
 
 
 df = cargar_datos(st.secrets["DATA_METRO_URL"])
-
 
 
 # ==================================================
