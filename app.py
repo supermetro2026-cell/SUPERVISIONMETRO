@@ -151,11 +151,24 @@ mensual = g.agg(
 horas_prod = (
     (mensual["Prom_T_Log"] - mensual["Prom_T_No_Listo"])
     .dt.total_seconds()
-    .replace(0, pd.NA) / 3600
+    .div(3600)
 )
 
-mensual["Prom. Contestadas"] = (mensual["Contestadas"]/mensual["Dias_trabajados"]).round(0)
-mensual["Prom. Contestadas x Hora"] = (mensual["Contestadas"]/horas_prod).round(0)
+mensual["Prom. Contestadas"] = (
+    mensual["Contestadas"]
+    .div(mensual["Dias_trabajados"])
+    .round(0)
+    .astype(int)
+)
+
+mensual["Prom. Contestadas x Hora"] = (
+    mensual["Contestadas"]
+    .div(horas_prod)
+    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0)
+    .fillna(0)
+    .round(0)
+    .astype(int)
+)
 
 for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
     mensual[c] = mensual[c].apply(fmt)
