@@ -13,6 +13,7 @@ USUARIOS = {
     "carranza": {"password": "carranza2026", "rol": "supervisor", "grupo": "CARRANZA"},
     "malenchu": {"password": "malenchulamejor1", "rol": "supervisor", "grupo": "GONZALEZ COMPANY"},
     "simone": {"password": "simone2026", "rol": "supervisor", "grupo": "SIMONE"},
+    "patof": {"password": "patof2026", "rol": "supervisor", "grupo": "FERNANDEZ P"},
     "jefatura": {"password": "admin123", "rol": "jefe"},
 }
 
