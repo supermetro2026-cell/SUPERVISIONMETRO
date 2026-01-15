@@ -164,56 +164,80 @@ df_dia = (
 # ==================================================
 # RESUMEN MENSUAL
 # ==================================================
-g = df_dia.groupby("Nombre de Usuario")
-
-mensual = g.agg(
-    Contestadas=("Contestadas","sum"),
-    Dias_trabajados=("Fecha","nunique"),
-    Reenvios=("Reenvios","sum"),
-    Transferencias=("Transferencias","sum"),
-    Prom_T_Log=("Tiempo_Logueado","mean"),
-    Prom_T_ACW=("Tiempo_ACW","mean"),
-    Prom_T_Listo=("Tiempo_Listo","mean"),
-    Prom_T_No_Listo=("Tiempo_No_Listo","mean"),
-    TMO=("Tiempo_Contestadas","mean"),
-).reset_index()
-
-# Horas productivas reales
-horas_prod = (
-    (mensual["Prom_T_Log"] - mensual["Prom_T_No_Listo"])
-    .dt.total_seconds()
-    .div(3600)
+mensual = (
+    df_dia
+    .groupby("Nombre de Usuario")
+    .agg(
+        Contestadas=("Contestadas","sum"),
+        Dias_trabajados=("Fecha","nunique"),
+        Reenvios=("Reenvios","sum"),
+        Transferencias=("Transferencias","sum"),
+        Prom_T_Log=("Tiempo_Logueado","mean"),
+        Prom_T_ACW=("Tiempo_ACW","mean"),
+        Prom_T_Listo=("Tiempo_Listo","mean"),
+        Prom_T_No_Listo=("Tiempo_No_Listo","mean"),
+        TMO=("Tiempo_Contestadas","mean"),
+    )
+    .reset_index()
 )
 
+# ============================
+# PROMEDIOS CORRECTOS
+# ============================
 mensual["Prom. Contestadas"] = (
     mensual["Contestadas"] / mensual["Dias_trabajados"]
 ).round(0).astype(int)
 
-mensual["Prom. Contestadas x Hora"] = (
-    mensual["Contestadas"] / horas_prod
-).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0).fillna(0).round(0).astype(int)
+horas_prod_asistente = (
+    (df_dia["Tiempo_Logueado"] - df_dia["Tiempo_No_Listo"])
+    .dt.total_seconds()
+    .div(3600)
+    .groupby(df_dia["Nombre de Usuario"])
+    .sum()
+)
 
-# Formato tiempos
+mensual = mensual.set_index("Nombre de Usuario")
+
+mensual["Prom. Contestadas x Hora"] = (
+    mensual["Contestadas"]
+    .div(horas_prod_asistente)
+    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0)
+    .fillna(0)
+    .round(0)
+    .astype(int)
+)
+
+mensual = mensual.reset_index()
+
 for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
     mensual[c] = mensual[c].apply(fmt)
 
 # ==================================================
 # TOTAL DEL GRUPO
 # ==================================================
-total_dias = mensual["Dias_trabajados"].sum()
+horas_prod_grupo = (
+    (df_dia["Tiempo_Logueado"] - df_dia["Tiempo_No_Listo"])
+    .dt.total_seconds()
+    .div(3600)
+    .sum()
+)
 
 total = pd.DataFrame([{
     "Nombre de Usuario": "TOTAL GRUPO",
-    "Contestadas": mensual["Contestadas"].sum(),
-    "Dias_trabajados": total_dias,
-    "Prom. Contestadas": round(mensual["Contestadas"].sum()/total_dias) if total_dias else 0,
-    "Prom. Contestadas x Hora": int(mensual["Prom. Contestadas x Hora"].mean()),
+    "Contestadas": df_dia["Contestadas"].sum(),
+    "Dias_trabajados": df_dia["Fecha"].nunique(),
+    "Prom. Contestadas": round(
+        df_dia["Contestadas"].sum() / df_dia["Fecha"].nunique()
+    ) if df_dia["Fecha"].nunique() > 0 else 0,
+    "Prom. Contestadas x Hora": round(
+        df_dia["Contestadas"].sum() / horas_prod_grupo
+    ) if horas_prod_grupo > 0 else 0,
     "Prom. Tiempo Logueado": fmt(df_dia["Tiempo_Logueado"].mean()),
     "Prom. Tiempo ACW": fmt(df_dia["Tiempo_ACW"].mean()),
     "Prom. Tiempo Listo": fmt(df_dia["Tiempo_Listo"].mean()),
     "Prom. Tiempo No Listo": fmt(df_dia["Tiempo_No_Listo"].mean()),
-    "Reenvios": mensual["Reenvios"].sum(),
-    "Transferencias": mensual["Transferencias"].sum(),
+    "Reenvios": df_dia["Reenvios"].sum(),
+    "Transferencias": df_dia["Transferencias"].sum(),
     "TMO": fmt(df_dia["Tiempo_Contestadas"].mean()),
 }])
 
