@@ -78,7 +78,7 @@ df = cargar_datos(st.secrets["DATA_METRO_URL"])
 # ==================================================
 
 SUP_EXCL = {
-    "ADICIONALES SDF","ROJAS","DIAZ","PORRAS",
+    "ADICIONALES SDF","DIAZ","PORRAS",
     "PAROLA","PAROLA-MUSSON"
 }
 
@@ -143,9 +143,11 @@ asistentes_validos = dominante[
 ]["Nombre de Usuario"]
 
 df_final = df_mes[df_mes["Nombre de Usuario"].isin(asistentes_validos)]
+
 # ==================================================
 # VALIDACIÓN: SIN DATOS
 # ==================================================
+
 if df_final.empty:
     st.warning("⚠️ No hay datos para este período.")
     st.stop()
