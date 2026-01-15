@@ -142,6 +142,12 @@ asistentes_validos = dominante[
 ]["Nombre de Usuario"]
 
 df_final = df_mes[df_mes["Nombre de Usuario"].isin(asistentes_validos)]
+# ==================================================
+# VALIDACIÓN: SIN DATOS
+# ==================================================
+if df_final.empty:
+    st.warning("⚠️ No hay datos para este período.")
+    st.stop()
 
 # ==================================================
 # AGRUPACIÓN DIARIA
