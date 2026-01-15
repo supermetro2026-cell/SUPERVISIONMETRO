@@ -78,7 +78,7 @@ df = cargar_datos(st.secrets["DATA_METRO_URL"])
 # ==================================================
 
 SUP_EXCL = {
-    "ADICIONALES SDF","DIAZ","PORRAS","ROJAS", "ALBORNOZ", "GONZALEZ C"
+    "ADICIONALES SDF","DIAZ","PORRAS","ROJAS", "ALBORNOZ", "GONZALEZ C",
     "PAROLA","PAROLA-MUSSON"
 }
 
