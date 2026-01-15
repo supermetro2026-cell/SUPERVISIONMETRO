@@ -171,6 +171,16 @@ df_dia = (
     .reset_index()
 )
 
+# ============================
+# TMO DIARIO
+# ============================
+df_dia["TMO"] = (
+    df_dia["Tiempo_Contestadas"]
+    .div(df_dia["Contestadas"])
+    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], pd.Timedelta(0))
+)
+
+
 # ==================================================
 # RESUMEN MENSUAL
 # ==================================================
@@ -297,7 +307,7 @@ detalle["Prom. Contestadas x Hora"] = (
 
 detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 
-for c in ["Tiempo_Contestadas","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
+for c in ["Tiempo_Contestadas", "TMO","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
     detalle[c] = detalle[c].apply(fmt)
 
 st.dataframe(
