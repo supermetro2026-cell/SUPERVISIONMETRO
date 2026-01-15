@@ -85,7 +85,7 @@ SUP_EXCL = {
 ASIST_EXCL = {
     "Laurenzano Renzo","Carranza Fernando","Graf Alejandro",
     "Alvarez Camila","Delgado Claudia",
-    "Gonzalez Company Malena","Parola Federico Javier",
+    "Gonzalez Company Malena","Parola Federico Javier","Simone Maylen",
 }
 
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
