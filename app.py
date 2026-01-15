@@ -161,6 +161,7 @@ df_dia = (
     .agg(
         Contestadas=("Llamadas Contestadas", "sum"),
         Tiempo_Contestadas=("Tiempo en Llamadas Contestadas", "sum"),
+        TMO=("Tiempo_Contestadas","mean")
         Tiempo_Logueado=("Tiempo Logueado", "sum"),
         Tiempo_ACW=("Tiempo ACW", "sum"),
         Tiempo_Listo=("Tiempo Estado Listo", "sum"),
