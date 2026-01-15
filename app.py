@@ -11,7 +11,7 @@ st.set_page_config(page_title="Supervisión – DATA METRO", layout="wide")
 # ==================================================
 USUARIOS = {
     "carranza": {"password": "carranza2026", "rol": "supervisor", "grupo": "CARRANZA"},
-    "malenchu": {"password": "malenchulamejor1", "rol": "supervisor", "grupo": "GONZALEZ C"},
+    "malenchu": {"password": "malenchulamejor1", "rol": "supervisor", "grupo": "GONZALEZ COMPANY"},
     "simone": {"password": "simone2026", "rol": "supervisor", "grupo": "SIMONE"},
     "jefatura": {"password": "admin123", "rol": "jefe"},
 }
