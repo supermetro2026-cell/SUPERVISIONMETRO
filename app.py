@@ -74,6 +74,7 @@ df = cargar_datos(st.secrets["DATA_METRO_URL"])
 # ==================================================
 # EXCLUSIONES
 # ==================================================
+
 SUP_EXCL = {
     "ADICIONALES SDF","ROJAS","DIAZ","PORRAS",
     "PAROLA","PAROLA-MUSSON"
@@ -83,7 +84,6 @@ ASIST_EXCL = {
     "Laurenzano Renzo","Carranza Fernando","Graf Alejandro",
     "Alvarez Camila","Delgado Claudia",
     "Gonzalez Company Malena","Parola Federico Javier",
-    "Funes Victoria",
 }
 
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
