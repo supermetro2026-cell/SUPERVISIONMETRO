@@ -304,6 +304,27 @@ detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 for c in ["Tiempo_Contestadas", "TMO","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
     detalle[c] = detalle[c].apply(fmt)
 
+COLUMNAS_DIARIO = [
+    "Nombre de Usuario",
+    "Fecha",
+    "Contestadas",
+    "Prom. Contestadas x Hora",
+    "TMO",
+    "Tiempo_Contestadas",
+    "Tiempo_Logueado",
+    "Tiempo_ACW",
+    "Tiempo_Listo",
+    "Tiempo_No_Listo",
+    "Reenvios",
+    "Transferencias",
+]
+COLUMNAS_DIARIO_OK = [
+    c for c in COLUMNAS_DIARIO if c in detalle.columns
+]
+
+detalle = detalle[COLUMNAS_DIARIO_OK]
+
+
 st.dataframe(
     detalle.sort_values("Fecha"),
     hide_index=True,
