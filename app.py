@@ -290,6 +290,37 @@ COLUMNAS_MENSUAL_OK = [
 mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 
 # ==================================================
+# GRAFICO: ACUMULADO ANUAL DE CONTESTADAS (ENERO–DICIEMBRE)
+# ==================================================
+
+st.markdown("## 📊 Acumulado anual de contestadas")
+
+# Base anual: todo el año, solo asistentes dominantes
+df_anual = df[
+    (df["Fecha"].dt.year == anio) &
+    (df["Nombre de Usuario"].isin(asistentes_validos))
+]
+
+# Agrupar por mes
+acumulado_mes = (
+    df_anual
+    .groupby(df_anual["Fecha"].dt.month)["Llamadas Contestadas"]
+    .sum()
+    .reindex(range(1,13), fill_value=0)
+)
+
+# Nombres de meses para mostrar lindo
+meses_labels = [
+    "Ene","Feb","Mar","Abr","May","Jun",
+    "Jul","Ago","Sep","Oct","Nov","Dic"
+]
+
+acumulado_mes.index = meses_labels
+
+# Mostrar gráfico
+st.bar_chart(acumulado_mes)
+
+# ==================================================
 # SALIDA
 # ==================================================
 st.markdown("## 🔹 Total del grupo")
