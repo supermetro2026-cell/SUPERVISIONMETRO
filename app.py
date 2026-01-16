@@ -291,6 +291,11 @@ mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 
 import altair as alt
 
+# ==================================================
+# SALIDA
+# ==================================================
+st.markdown("## 🔹 Total del grupo")
+st.dataframe(total, hide_index=True, use_container_width=True)
 st.markdown("## 📊 Acumulado anual de contestadas")
 
 # Base anual: todo el año, asistentes dominantes
@@ -350,12 +355,7 @@ chart = (
 )
 
 st.altair_chart(chart, use_container_width=True)
-
 # ==================================================
-# SALIDA
-# ==================================================
-st.markdown("## 🔹 Total del grupo")
-st.dataframe(total, hide_index=True, use_container_width=True)
 
 st.markdown("## 🔹 Resumen mensual por asistente")
 
