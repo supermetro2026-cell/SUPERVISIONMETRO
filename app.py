@@ -289,43 +289,67 @@ COLUMNAS_MENSUAL_OK = [
 
 mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 
-# ==================================================
-# GRAFICO: ACUMULADO ANUAL DE CONTESTADAS (ORDENADO)
-# ==================================================
+import altair as alt
 
 st.markdown("## 📊 Acumulado anual de contestadas")
 
-# Base anual: todo el año, solo asistentes dominantes
+# Base anual: todo el año, asistentes dominantes
 df_anual = df[
     (df["Fecha"].dt.year == anio) &
     (df["Nombre de Usuario"].isin(asistentes_validos))
 ]
 
-# Agrupar por mes (numérico)
+# Agrupar por mes numérico
 acumulado_mes = (
     df_anual
     .groupby(df_anual["Fecha"].dt.month)["Llamadas Contestadas"]
     .sum()
-    .reset_index()
+    .reset_index(name="Contestadas")
     .rename(columns={"Fecha": "Mes"})
 )
 
-# Completar meses faltantes (1 a 12)
-acumulado_mes = acumulado_mes.set_index("Mes").reindex(range(1,13), fill_value=0).reset_index()
+# Completar meses faltantes
+acumulado_mes = (
+    acumulado_mes
+    .set_index("Mes")
+    .reindex(range(1, 13), fill_value=0)
+    .reset_index()
+)
 
-# Agregar nombre del mes SOLO para mostrar
+# Nombre del mes
 acumulado_mes["Mes_nombre"] = [
     "Ene","Feb","Mar","Abr","May","Jun",
     "Jul","Ago","Sep","Oct","Nov","Dic"
 ]
 
-# Usar el mes numérico para el orden
-acumulado_mes = acumulado_mes.sort_values("Mes")
+# 🔒 ORDEN CRONOLÓGICO EXPLÍCITO
+orden_meses = [
+    "Ene","Feb","Mar","Abr","May","Jun",
+    "Jul","Ago","Sep","Oct","Nov","Dic"
+]
 
-# Mostrar gráfico (usa orden del DataFrame)
-st.bar_chart(
-    acumulado_mes.set_index("Mes_nombre")["Llamadas Contestadas"]
+# Gráfico Altair
+chart = (
+    alt.Chart(acumulado_mes)
+    .mark_bar()
+    .encode(
+        x=alt.X(
+            "Mes_nombre:N",
+            sort=orden_meses,
+            title="Mes"
+        ),
+        y=alt.Y(
+            "Contestadas:Q",
+            title="Llamadas contestadas"
+        ),
+        tooltip=["Mes_nombre", "Contestadas"]
+    )
+    .properties(
+        height=400
+    )
 )
+
+st.altair_chart(chart, use_container_width=True)
 
 # ==================================================
 # SALIDA
