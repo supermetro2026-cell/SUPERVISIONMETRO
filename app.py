@@ -65,7 +65,7 @@ def cargar_datos(url):
 
     return df
 
-df = cargar_datos(st.secrets["DATA_METRO_URL"])
+df = cargar_datos(st.secrets["DATA"]["DATA_METRO_URL"])
 
 # ==================================================
 # EXCLUSIONES
