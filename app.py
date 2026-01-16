@@ -268,6 +268,27 @@ total = pd.DataFrame([{
     "TMO": fmt(df_dia["Tiempo_Contestadas"].mean()),
 }])
 
+COLUMNAS_MENSUAL = [
+    "Nombre de Usuario",
+    "Contestadas",
+    "Dias_trabajados",
+    "Prom. Contestadas",
+    "Prom. Contestadas x Hora",
+    "TMO",
+    "Prom_T_Log",
+    "Prom_T_ACW",
+    "Prom_T_Listo",
+    "Prom_T_No_Listo",
+    "Reenvios",
+    "Transferencias",
+]
+
+COLUMNAS_MENSUAL_OK = [
+    c for c in COLUMNAS_MENSUAL if c in mensual.columns
+]
+
+mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
+
 # ==================================================
 # SALIDA
 # ==================================================
@@ -275,8 +296,9 @@ st.markdown("## 🔹 Total del grupo")
 st.dataframe(total, hide_index=True, use_container_width=True)
 
 st.markdown("## 🔹 Resumen mensual por asistente")
+
 st.dataframe(
-    mensual.sort_values("Contestadas", ascending=False),
+    mensual_mostrar.sort_values("Contestadas", ascending=False),
     hide_index=True,
     use_container_width=True
 )
