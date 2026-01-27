@@ -527,28 +527,5 @@ if not modo_call:
         use_container_width=True,
         height=450
     )
-# ======================================
-# BLOQUE CALL CENTER TOTAL
-# ======================================
-if modo_call:
-
-    st.markdown("## 📊 Resumen mensual por supervisor")
-    st.dataframe(sup_resumen, ...)
-
-    st.markdown("## 📈 Acumulado anual de contestadas")
-    st.altair_chart(chart)
-
-# ======================================
-# BLOQUE SUPERVISOR NORMAL
-# ======================================
-if not modo_call:
-
-    st.markdown("## 🔹 Total del grupo")
-    st.dataframe(total)
-
-    st.markdown("## 🔹 Resumen mensual por asistente")
-    st.dataframe(mensual_mostrar)
-
-    # detalle diario asistente
 
 
