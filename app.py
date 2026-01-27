@@ -527,29 +527,28 @@ if not modo_call:
         use_container_width=True,
         height=450
     )
+# ======================================
+# BLOQUE CALL CENTER TOTAL
+# ======================================
+if modo_call:
 
-# ==================================================
+    st.markdown("## 📊 Resumen mensual por supervisor")
+    st.dataframe(sup_resumen, ...)
 
-if sup_sel == "TODOS (CALL)":
+    st.markdown("## 📈 Acumulado anual de contestadas")
+    st.altair_chart(chart)
 
-    st.markdown("## 👔 Acumulado mensual por supervisor")
+# ======================================
+# BLOQUE SUPERVISOR NORMAL
+# ======================================
+if not modo_call:
 
-    sup_mes = (
-        df_mes
-        .groupby("SUPERVISOR")
-        .agg(
-            Contestadas=("Llamadas Contestadas","sum"),
-            Asistentes=("Nombre de Usuario","nunique"),
-            Dias=("Fecha","nunique"),
-            TMO=("Tiempo en Llamadas Contestadas","mean"),
-        )
-        .reset_index()
-        .sort_values("Contestadas", ascending=False)
-    )
+    st.markdown("## 🔹 Total del grupo")
+    st.dataframe(total)
 
-    sup_mes["TMO"] = sup_mes["TMO"].apply(fmt)
+    st.markdown("## 🔹 Resumen mensual por asistente")
+    st.dataframe(mensual_mostrar)
 
-    st.dataframe(sup_mes, hide_index=True, use_container_width=True)
+    # detalle diario asistente
 
-# ==================================================
 
