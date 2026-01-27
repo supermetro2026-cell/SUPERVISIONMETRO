@@ -176,9 +176,13 @@ df_mes = df[
     (df["Fecha"].dt.month == mes_num)
 ]
 
+#DETECTAR SI ESTAMOS EN MODO TODOS
+modo_call = (sup_sel == "TODOS (CALL)")
+
 # ==================================================
 # SUPERVISOR DOMINANTE
 # ==================================================
+
 dominante = (
     df_mes
     .groupby(["Nombre de Usuario", "SUPERVISOR"])["Fecha"]
@@ -453,21 +457,25 @@ st.altair_chart(chart, use_container_width=True)
 
 # ==================================================
 
-st.markdown("## 🔹 Resumen mensual por asistente")
+if not modo_call:
+    st.markdown("## 🔹 Resumen mensual por asistente")
+    st.dataframe(
+        mensual_mostrar.sort_values("Contestadas", ascending=False),
+        hide_index=True,
+        use_container_width=True
+    )
 
-st.dataframe(
-    mensual_mostrar.sort_values("Contestadas", ascending=False),
-    hide_index=True,
-    use_container_width=True
-)
 
 # ==================================================
 # DETALLE DIARIO
 # ==================================================
-st.markdown("## 📆 Detalle diario por asistente")
+if not modo_call:
+    st.markdown("## 📆 Detalle diario por asistente")
 
-asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
-detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
+    asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
+    detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
+    ...
+
 
 horas_prod_dia = (
     (detalle["Tiempo_Logueado"] - detalle["Tiempo_No_Listo"])
@@ -512,27 +520,28 @@ st.dataframe(
     height=450
 )
 
+# ==================================================
+
 if sup_sel == "TODOS (CALL)":
 
-    st.markdown("## 📅 Detalle diario por supervisor")
+    st.markdown("## 👔 Acumulado mensual por supervisor")
 
-    sup_dia = st.selectbox("Supervisor (día)", sorted(df_mes["SUPERVISOR"].unique()))
-
-    df_sup_dia = df_mes[df_mes["SUPERVISOR"] == sup_dia]
-
-    dia_sup = (
-        df_sup_dia
-        .groupby("Fecha")
+    sup_mes = (
+        df_mes
+        .groupby("SUPERVISOR")
         .agg(
             Contestadas=("Llamadas Contestadas","sum"),
+            Asistentes=("Nombre de Usuario","nunique"),
+            Dias=("Fecha","nunique"),
             TMO=("Tiempo en Llamadas Contestadas","mean"),
         )
         .reset_index()
+        .sort_values("Contestadas", ascending=False)
     )
 
-    dia_sup["TMO"] = dia_sup["TMO"].apply(fmt)
-    dia_sup["Fecha"] = dia_sup["Fecha"].dt.strftime("%d/%m/%Y")
+    sup_mes["TMO"] = sup_mes["TMO"].apply(fmt)
 
-    st.dataframe(dia_sup, hide_index=True, use_container_width=True)
+    st.dataframe(sup_mes, hide_index=True, use_container_width=True)
+
 # ==================================================
 
