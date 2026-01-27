@@ -396,15 +396,22 @@ if sup_sel == "TODOS (CALL)":
 # ==================================================
 st.markdown("## 🔹 Total del grupo")
 st.dataframe(total, hide_index=True, use_container_width=True)
+
+# ==================================================
+# 📊 ACUMULADO ANUAL DE CONTESTADAS
+# ==================================================
 st.markdown("## 📊 Acumulado anual de contestadas")
 
-# Base anual: todo el año, asistentes dominantes
-df_anual = df[
-    (df["Fecha"].dt.year == anio) &
-    (df["Nombre de Usuario"].isin(asistentes_validos))
-]
+# Base anual
+if sup_sel == "TODOS (CALL)":
+    df_anual = df[df["Fecha"].dt.year == anio]
+else:
+    df_anual = df[
+        (df["Fecha"].dt.year == anio) &
+        (df["Nombre de Usuario"].isin(asistentes_validos))
+    ]
 
-# Agrupar por mes numérico
+# Agrupar por mes
 acumulado_mes = (
     df_anual
     .groupby(df_anual["Fecha"].dt.month)["Llamadas Contestadas"]
@@ -421,40 +428,29 @@ acumulado_mes = (
     .reset_index()
 )
 
-# Nombre del mes
+# Nombre de mes
 acumulado_mes["Mes_nombre"] = [
     "Ene","Feb","Mar","Abr","May","Jun",
     "Jul","Ago","Sep","Oct","Nov","Dic"
 ]
 
-# 🔒 ORDEN CRONOLÓGICO EXPLÍCITO
-orden_meses = [
-    "Ene","Feb","Mar","Abr","May","Jun",
-    "Jul","Ago","Sep","Oct","Nov","Dic"
-]
+# Orden cronológico
+orden_meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
 
-# Gráfico Altair
+# Gráfico
 chart = (
     alt.Chart(acumulado_mes)
     .mark_bar()
     .encode(
-        x=alt.X(
-            "Mes_nombre:N",
-            sort=orden_meses,
-            title="Mes"
-        ),
-        y=alt.Y(
-            "Contestadas:Q",
-            title="Llamadas contestadas"
-        ),
+        x=alt.X("Mes_nombre:N", sort=orden_meses, title="Mes"),
+        y=alt.Y("Contestadas:Q", title="Llamadas contestadas"),
         tooltip=["Mes_nombre", "Contestadas"]
     )
-    .properties(
-        height=400
-    )
+    .properties(height=400)
 )
 
 st.altair_chart(chart, use_container_width=True)
+
 # ==================================================
 
 st.markdown("## 🔹 Resumen mensual por asistente")
