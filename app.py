@@ -149,7 +149,9 @@ with col1:
         sup_sel = st.session_state.grupo
         st.info(f"Supervisor: {sup_sel}")
     else:
-        sup_sel = st.selectbox("Supervisor", sorted(df["SUPERVISOR"].unique()))
+        lista_sup = sorted(df["SUPERVISOR"].unique())
+        lista_sup.insert(0, "TODOS (CALL)")
+        sup_sel = st.selectbox("Supervisor", lista_sup)
 
 with col2:
     anio = st.selectbox("Año", sorted(df["Fecha"].dt.year.unique()))
@@ -186,11 +188,13 @@ dominante = (
     .drop_duplicates("Nombre de Usuario")
 )
 
-asistentes_validos = dominante[
-    dominante["SUPERVISOR"] == sup_sel
-]["Nombre de Usuario"]
-
-df_final = df_mes[df_mes["Nombre de Usuario"].isin(asistentes_validos)]
+if sup_sel == "TODOS (CALL)":
+    df_final = df_mes.copy()
+else:
+    asistentes_validos = dominante[
+        dominante["SUPERVISOR"] == sup_sel
+    ]["Nombre de Usuario"]
+    df_final = df_mes[df_mes["Nombre de Usuario"].isin(asistentes_validos)]
 
 # ==================================================
 # VALIDACIÓN: SIN DATOS
@@ -346,6 +350,48 @@ mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 import altair as alt
 
 # ==================================================
+#agregado para jefatura TABLA RESUMEN MENS POR SUP
+if sup_sel == "TODOS (CALL)":
+
+    st.markdown("## 👔 Resumen mensual por supervisor")
+
+    resumen_sup = (
+        df_mes
+        .groupby("SUPERVISOR")
+        .agg(
+            Contestadas=("Llamadas Contestadas","sum"),
+            Dias_trabajados=("Fecha","nunique"),
+            TMO=("Tiempo en Llamadas Contestadas","mean"),
+            Tiempo_No_Listo=("Tiempo Estado No Listo","mean"),
+        )
+        .reset_index()
+    )
+
+    # Prom contestadas x día
+    resumen_sup["Prom. Contestadas"] = (
+        resumen_sup["Contestadas"] / resumen_sup["Dias_trabajados"]
+    ).round(0).astype(int)
+
+    # Formato tiempos
+    resumen_sup["TMO"] = resumen_sup["TMO"].apply(fmt)
+    resumen_sup["Tiempo_No_Listo"] = resumen_sup["Tiempo_No_Listo"].apply(fmt)
+
+    COLUMNAS_SUP = [
+        "SUPERVISOR",
+        "Contestadas",
+        "Dias_trabajados",
+        "Prom. Contestadas",
+        "TMO",
+        "Tiempo_No_Listo",
+    ]
+
+    st.dataframe(
+        resumen_sup.sort_values("Contestadas", ascending=False)[COLUMNAS_SUP],
+        hide_index=True,
+        use_container_width=True
+    )
+# ==================================================
+# ==================================================
 # SALIDA
 # ==================================================
 st.markdown("## 🔹 Total del grupo")
@@ -469,3 +515,28 @@ st.dataframe(
     use_container_width=True,
     height=450
 )
+
+if sup_sel == "TODOS (CALL)":
+
+    st.markdown("## 📅 Detalle diario por supervisor")
+
+    sup_dia = st.selectbox("Supervisor (día)", sorted(df_mes["SUPERVISOR"].unique()))
+
+    df_sup_dia = df_mes[df_mes["SUPERVISOR"] == sup_dia]
+
+    dia_sup = (
+        df_sup_dia
+        .groupby("Fecha")
+        .agg(
+            Contestadas=("Llamadas Contestadas","sum"),
+            TMO=("Tiempo en Llamadas Contestadas","mean"),
+        )
+        .reset_index()
+    )
+
+    dia_sup["TMO"] = dia_sup["TMO"].apply(fmt)
+    dia_sup["Fecha"] = dia_sup["Fecha"].dt.strftime("%d/%m/%Y")
+
+    st.dataframe(dia_sup, hide_index=True, use_container_width=True)
+# ==================================================
+
