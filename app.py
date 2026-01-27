@@ -467,58 +467,66 @@ if not modo_call:
 
 
 # ==================================================
-# DETALLE DIARIO
+# DETALLE DIARIO POR ASISTENTE (solo modo supervisor)
 # ==================================================
 if not modo_call:
+
     st.markdown("## 📆 Detalle diario por asistente")
 
     asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
     detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
-    ...
 
+    # ============================
+    # PRODUCTIVIDAD DIARIA
+    # ============================
+    horas_prod_dia = (
+        (detalle["Tiempo_Logueado"] - detalle["Tiempo_No_Listo"])
+        .dt.total_seconds()
+        .div(3600)
+    )
 
-horas_prod_dia = (
-    (detalle["Tiempo_Logueado"] - detalle["Tiempo_No_Listo"])
-    .dt.total_seconds()
-    .div(3600)
-)
+    detalle["Prom. Contestadas x Hora"] = (
+        detalle["Contestadas"] / horas_prod_dia
+    ).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0).fillna(0).round(0).astype(int)
 
-detalle["Prom. Contestadas x Hora"] = (
-    detalle["Contestadas"] / horas_prod_dia
-).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], 0).fillna(0).round(0).astype(int)
+    # ============================
+    # FORMATO FECHA Y TIEMPOS
+    # ============================
+    detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 
-detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
+    for c in ["Tiempo_Contestadas","TMO","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
+        detalle[c] = detalle[c].apply(fmt)
 
-for c in ["Tiempo_Contestadas", "TMO","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
-    detalle[c] = detalle[c].apply(fmt)
+    # ============================
+    # ORDEN COLUMNAS
+    # ============================
+    COLUMNAS_DIARIO = [
+        "Nombre de Usuario",
+        "Fecha",
+        "Contestadas",
+        "Prom. Contestadas x Hora",
+        "TMO",
+        "Tiempo_Contestadas",
+        "Tiempo_Logueado",
+        "Tiempo_ACW",
+        "Tiempo_Listo",
+        "Tiempo_No_Listo",
+        "Reenvios",
+        "Transferencias",
+    ]
 
-COLUMNAS_DIARIO = [
-    "Nombre de Usuario",
-    "Fecha",
-    "Contestadas",
-    "Prom. Contestadas x Hora",
-    "TMO",
-    "Tiempo_Contestadas",
-    "Tiempo_Logueado",
-    "Tiempo_ACW",
-    "Tiempo_Listo",
-    "Tiempo_No_Listo",
-    "Reenvios",
-    "Transferencias",
-]
-COLUMNAS_DIARIO_OK = [
-    c for c in COLUMNAS_DIARIO if c in detalle.columns
-]
+    COLUMNAS_DIARIO_OK = [c for c in COLUMNAS_DIARIO if c in detalle.columns]
+    detalle = detalle[COLUMNAS_DIARIO_OK]
 
-detalle = detalle[COLUMNAS_DIARIO_OK]
-
-
-st.dataframe(
-    detalle.sort_values("Fecha"),
-    hide_index=True,
-    use_container_width=True,
-    height=450
-)
+    # ============================
+    # OUTPUT
+    # ============================
+    st.dataframe(
+        detalle.sort_values("Fecha"),
+        hide_index=True,
+        use_container_width=True,
+        height=450
+    )
 
 # ==================================================
 
