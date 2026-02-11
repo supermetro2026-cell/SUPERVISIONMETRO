@@ -245,6 +245,7 @@ mensual = (
     .groupby("Nombre de Usuario")
     .agg(
         Contestadas=("Contestadas","sum"),
+        Tiempo_Contestadas_Total=("Tiempo_Contestadas","sum"),
         Dias_trabajados=("Fecha","nunique"),
         Reenvios=("Reenvios","sum"),
         Transferencias=("Transferencias","sum"),
@@ -252,10 +253,17 @@ mensual = (
         Prom_T_ACW=("Tiempo_ACW","mean"),
         Prom_T_Listo=("Tiempo_Listo","mean"),
         Prom_T_No_Listo=("Tiempo_No_Listo","mean"),
-        TMO=("Tiempo_Contestadas","mean"),
     )
     .reset_index()
 )
+
+mensual["TMO"] = (
+    mensual["Tiempo_Contestadas_Total"]
+    .div(mensual["Contestadas"])
+    .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], pd.Timedelta(0))
+)
+
+mensual.drop(columns=["Tiempo_Contestadas_Total"], inplace=True)
 
 # ============================
 # PROMEDIOS CORRECTOS
@@ -328,7 +336,10 @@ total = pd.DataFrame([{
 
     "Reenvios": df_dia["Reenvios"].sum(),
     "Transferencias": df_dia["Transferencias"].sum(),
-    "TMO": fmt(df_dia["Tiempo_Contestadas"].mean()),
+   "TMO": fmt(
+    df_dia["Tiempo_Contestadas"].sum() /
+    df_dia["Contestadas"].sum()
+) if df_dia["Contestadas"].sum() > 0 else fmt(pd.Timedelta(0)),
 }])
 
 COLUMNAS_MENSUAL = [
@@ -355,29 +366,51 @@ mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 import altair as alt
 
 # ==================================================
-#agregado para jefatura TABLA RESUMEN MENS POR SUP
 if sup_sel == "TODOS (CALL)":
 
     st.markdown("## 👔 Resumen mensual por supervisor")
 
+    # =============================
+    # Base BI consistente desde df_dia
+    # =============================
+    df_sup_base = df_dia.merge(
+        dominante[["Nombre de Usuario","SUPERVISOR"]],
+        on="Nombre de Usuario",
+        how="left"
+    )
+
     resumen_sup = (
-        df_mes
+        df_sup_base
         .groupby("SUPERVISOR")
         .agg(
-            Contestadas=("Llamadas Contestadas","sum"),
+            Contestadas=("Contestadas","sum"),
+            Tiempo_Contestadas_Total=("Tiempo_Contestadas","sum"),
             Dias_trabajados=("Fecha","nunique"),
-            TMO=("Tiempo en Llamadas Contestadas","mean"),
-            Tiempo_No_Listo=("Tiempo Estado No Listo","mean"),
+            Tiempo_No_Listo=("Tiempo_No_Listo","mean"),
         )
         .reset_index()
     )
 
-    # Prom contestadas x día
+    # =============================
+    # TMO REAL BI
+    # =============================
+    resumen_sup["TMO"] = (
+        resumen_sup["Tiempo_Contestadas_Total"]
+        / resumen_sup["Contestadas"]
+    ).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], pd.Timedelta(0))
+
+    resumen_sup.drop(columns=["Tiempo_Contestadas_Total"], inplace=True)
+
+    # =============================
+    # Promedio diario real
+    # =============================
     resumen_sup["Prom. Contestadas"] = (
         resumen_sup["Contestadas"] / resumen_sup["Dias_trabajados"]
     ).round(0).astype(int)
 
-    # Formato tiempos
+    # =============================
+    # Formato final
+    # =============================
     resumen_sup["TMO"] = resumen_sup["TMO"].apply(fmt)
     resumen_sup["Tiempo_No_Listo"] = resumen_sup["Tiempo_No_Listo"].apply(fmt)
 
