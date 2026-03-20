@@ -59,6 +59,7 @@ def cargar_datos(url):
         "Tiempo ACW",
         "Tiempo Estado Listo",
         "Tiempo Estado No Listo",
+        "Tiempo Hold",
     ]
     for c in columnas_tiempo:
         df[c] = df[c].apply(to_td)
@@ -529,7 +530,7 @@ if not modo_call:
     # ============================
     detalle["Fecha"] = detalle["Fecha"].dt.strftime("%d/%m/%Y")
 
-    for c in ["Tiempo_Contestadas","TMO","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo"]:
+    for c in ["Tiempo_Contestadas","TMO","Tiempo_Logueado","Tiempo_ACW","Tiempo_Listo","Tiempo_No_Listo","Tiempo_hold"]:
         detalle[c] = detalle[c].apply(fmt)
 
     # ============================
@@ -544,7 +545,7 @@ if not modo_call:
         "Tiempo_Contestadas",
         "Tiempo_Logueado",
         "Tiempo_ACW",
-        "Tiempo Hold",
+        "Tiempo_hold",
         "Tiempo_Listo",
         "Tiempo_No_Listo",
         "Reenvios",
@@ -553,6 +554,11 @@ if not modo_call:
 
     COLUMNAS_DIARIO_OK = [c for c in COLUMNAS_DIARIO if c in detalle.columns]
     detalle = detalle[COLUMNAS_DIARIO_OK]
+
+    detalle = detalle.rename(columns={
+    "Tiempo_hold": "Tiempo Hold"
+    })
+
 
     # ============================
     # OUTPUT
