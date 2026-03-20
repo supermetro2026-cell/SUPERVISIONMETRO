@@ -544,6 +544,7 @@ if not modo_call:
         "Tiempo_Contestadas",
         "Tiempo_Logueado",
         "Tiempo_ACW",
+        "Tiempo Hold",
         "Tiempo_Listo",
         "Tiempo_No_Listo",
         "Reenvios",
