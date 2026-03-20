@@ -221,6 +221,7 @@ df_dia = (
         Tiempo_ACW=("Tiempo ACW", "sum"),
         Tiempo_Listo=("Tiempo Estado Listo", "sum"),
         Tiempo_No_Listo=("Tiempo Estado No Listo", "sum"),
+        Tiempo_hold=("Tiempo Hold", "sum"),
         Reenvios=("Re envios a la cola", "sum"),
         Transferencias=("Transferencias Realizadas", "sum"),
     )
