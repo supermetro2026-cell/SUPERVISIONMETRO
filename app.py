@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-
 # ==================================================
 # CONFIG
 # ==================================================
@@ -27,7 +26,6 @@ if not st.session_state.login_ok:
         else:
             st.error("Credenciales incorrectas")
     st.stop()
-
 # ==================================================
 # FUNCIONES
 # ==================================================
@@ -123,7 +121,6 @@ SUPERVISORES_MAP = {
 
 # Aplicar reemplazo
 df["SUPERVISOR"] = df["SUPERVISOR"].replace(SUPERVISORES_MAP)
-
 # ==================================================
 # EXCLUSIONES
 # ==================================================
@@ -240,12 +237,17 @@ df_dia["TMO"] = (
     .replace([pd.NA, pd.NaT, float("inf"), -float("inf")], pd.Timedelta(0))
 )
 
-
 # ==================================================
 # RESUMEN MENSUAL
 # ==================================================
+# Excluir el 29/10/2026 únicamente de los cálculos del resumen mensual por asistente.
+# df_dia permanece intacto para el detalle diario y el total del grupo.
+df_dia_mensual = df_dia[
+    df_dia["Fecha"].dt.normalize() != pd.Timestamp("2026-10-29")
+].copy()
+
 mensual = (
-    df_dia
+    df_dia_mensual
     .groupby("Nombre de Usuario")
     .agg(
         Contestadas=("Contestadas","sum"),
@@ -277,10 +279,10 @@ mensual["Prom. Contestadas"] = (
 ).round(0).astype(int)
 
 horas_prod_asistente = (
-    (df_dia["Tiempo_Logueado"] - df_dia["Tiempo_No_Listo"])
+    (df_dia_mensual["Tiempo_Logueado"] - df_dia_mensual["Tiempo_No_Listo"])
     .dt.total_seconds()
     .div(3600)
-    .groupby(df_dia["Nombre de Usuario"])
+    .groupby(df_dia_mensual["Nombre de Usuario"])
     .sum()
 )
 
@@ -369,21 +371,14 @@ mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 
 import altair as alt
 
-# ==================================================
-if sup_sel == "TODOS (CALL)":
-
-    st.markdown("## 👔 Resumen mensual por supervisor")
-
     # =============================
-    # Base BI consistente desde df_dia
-    # =============================
-    df_sup_base = df_dia.merge(
+df_sup_base = df_dia.merge(
         dominante[["Nombre de Usuario","SUPERVISOR"]],
         on="Nombre de Usuario",
         how="left"
     )
 
-    resumen_sup = (
+resumen_sup = (
         df_sup_base
         .groupby("SUPERVISOR")
         .agg(
@@ -398,27 +393,27 @@ if sup_sel == "TODOS (CALL)":
     # =============================
     # TMO REAL BI
     # =============================
-    resumen_sup["TMO"] = (
+resumen_sup["TMO"] = (
         resumen_sup["Tiempo_Contestadas_Total"]
         / resumen_sup["Contestadas"]
     ).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], pd.Timedelta(0))
 
-    resumen_sup.drop(columns=["Tiempo_Contestadas_Total"], inplace=True)
+resumen_sup.drop(columns=["Tiempo_Contestadas_Total"], inplace=True)
 
     # =============================
     # Promedio diario real
     # =============================
-    resumen_sup["Prom. Contestadas"] = (
+resumen_sup["Prom. Contestadas"] = (
         resumen_sup["Contestadas"] / resumen_sup["Dias_trabajados"]
     ).round(0).astype(int)
 
     # =============================
     # Formato final
     # =============================
-    resumen_sup["TMO"] = resumen_sup["TMO"].apply(fmt)
-    resumen_sup["Tiempo_No_Listo"] = resumen_sup["Tiempo_No_Listo"].apply(fmt)
+resumen_sup["TMO"] = resumen_sup["TMO"].apply(fmt)
+resumen_sup["Tiempo_No_Listo"] = resumen_sup["Tiempo_No_Listo"].apply(fmt)
 
-    COLUMNAS_SUP = [
+COLUMNAS_SUP = [
         "SUPERVISOR",
         "Contestadas",
         "Dias_trabajados",
@@ -427,7 +422,7 @@ if sup_sel == "TODOS (CALL)":
         "Tiempo_No_Listo",
     ]
 
-    st.dataframe(
+st.dataframe(
         resumen_sup.sort_values("Contestadas", ascending=False)[COLUMNAS_SUP],
         hide_index=True,
         use_container_width=True
@@ -503,7 +498,6 @@ if not modo_call:
         use_container_width=True
     )
 
-
 # ==================================================
 # DETALLE DIARIO POR ASISTENTE (solo modo supervisor)
 # ==================================================
@@ -572,4 +566,3 @@ if not modo_call:
         height=450
     )
 # ==================================================
-
