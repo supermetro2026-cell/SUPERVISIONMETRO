@@ -46,7 +46,7 @@ def fmt(td):
 # ==================================================
 # CARGA CSV
 # ==================================================
-@st.cache_data
+@st.cache_data(ttl=300)
 def cargar_datos(url):
     df = pd.read_csv(url, sep=";", encoding="latin1")
     df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
@@ -66,12 +66,6 @@ def cargar_datos(url):
 
 df = cargar_datos(st.secrets["DATA"]["DATA_METRO_URL"])
 
-st.write("DEBUG - Última fecha cargada:", df["Fecha"].max())
-st.write("DEBUG - Registros cargados:", len(df))
-st.write("DEBUG - Registros por mes:")
-st.write(
-    df.groupby(df["Fecha"].dt.to_period("M")).size()
-)
 # ==================================================
 # NORMALIZACIÓN Y UNIFICACIÓN DE SUPERVISORES
 # ==================================================
@@ -145,11 +139,7 @@ ASIST_EXCL = {
 
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
 df = df[~df["Nombre de Usuario"].isin(ASIST_EXCL)]
-st.write("DEBUG - Última fecha después de exclusiones:", df["Fecha"].max())
-st.write("DEBUG - Registros después de exclusiones:", len(df))
-st.write(
-    df.groupby(df["Fecha"].dt.to_period("M")).size()
-)
+
 # ==================================================
 # FILTROS
 # ==================================================
