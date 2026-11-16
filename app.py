@@ -489,16 +489,7 @@ COLUMNAS_MENSUAL_OK = [
     c for c in COLUMNAS_MENSUAL if c in mensual.columns
 ]
 
-# Ranking mensual por cantidad de llamadas contestadas (mayor a menor).
-mensual = mensual.sort_values(
-    ["Contestadas", "Nombre de Usuario"],
-    ascending=[False, True]
-).reset_index(drop=True)
-mensual.insert(0, "Ranking", mensual["Contestadas"].rank(
-    method="min", ascending=False
-).astype(int))
-
-mensual_mostrar = mensual[["Ranking"] + COLUMNAS_MENSUAL_OK]
+mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 
 import altair as alt
 
@@ -730,4 +721,9 @@ if not modo_call:
             )
             st.dataframe(top5, hide_index=True, use_container_width=True)
 
+    # Información de control para identificar casos CRM no atribuibles.
+    with st.expander("Control de integración CRM"):
+        st.write(f"Casos CRM totales en el archivo: {len(cargar_casos_crm(st.secrets['DATA']['DATA_CRM_URL']))}")
+        st.write(f"Casos atribuidos a asistentes de DATA METRO: {len(crm)}")
+        st.write(f"Casos ignorados por falta de coincidencia: {len(cargar_casos_crm(st.secrets['DATA']['DATA_CRM_URL'])) - len(crm)}")
 # ==================================================
