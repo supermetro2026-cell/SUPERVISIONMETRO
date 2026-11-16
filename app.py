@@ -46,7 +46,7 @@ def fmt(td):
 # ==================================================
 # CARGA CSV
 # ==================================================
-@st.cache_data(ttl=300)
+@st.cache_data
 def cargar_datos(url):
     df = pd.read_csv(url, sep=";", encoding="latin1")
     df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
@@ -65,6 +65,113 @@ def cargar_datos(url):
     return df
 
 df = cargar_datos(st.secrets["DATA"]["DATA_METRO_URL"])
+
+# ==================================================
+# CARGA Y NORMALIZACIÓN DE CASOS CRM
+# ==================================================
+import re
+import unicodedata
+
+
+def normalizar_nombre(valor):
+    """Normaliza nombres para cruzar CRM (nombre-apellido) con DATA METRO."""
+    if pd.isna(valor):
+        return ""
+    texto = str(valor).strip().upper()
+    texto = texto.replace("?", "N")  # algunos caracteres ñ llegan dañados en la exportación CRM
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    tokens = re.findall(r"[A-Z0-9]+", texto)
+    if len(tokens) < 2:
+        return ""
+    # CRM suele traer nombre + segundos nombres + apellido; DATA METRO,
+    # apellido + nombre. Se compara el primer nombre y el último apellido.
+    return "|".join(sorted([tokens[0], tokens[-1]]))
+
+
+@st.cache_data(ttl=300)
+def cargar_casos_crm(url):
+    crm = pd.read_csv(url, sep=";", encoding="latin1", low_memory=False)
+    crm["fecha_inicio"] = pd.to_datetime(crm["fecha_inicio"], errors="coerce")
+    crm["fecha_inicio"] = crm["fecha_inicio"].dt.normalize()
+    crm["nro_caso"] = crm["nro_caso"].astype(str).str.strip()
+    crm["motivo"] = crm["motivo"].astype(str).str.strip().str.upper()
+    crm["categoria"] = crm["categoria"].fillna("SIN CATEGORÍA").astype(str).str.strip()
+    crm["agente_crm"] = (
+        crm["agente_iniciador_na"].fillna("").astype(str)
+        .str.split("-", n=1).str[-1].str.strip()
+    )
+    crm["clave_agente"] = crm["agente_crm"].apply(normalizar_nombre)
+    return crm
+
+
+crm = cargar_casos_crm(st.secrets["DATA"]["DATA_CRM_URL"])
+
+# Mapa de nombre normalizado de DATA METRO -> nombre de usuario original.
+# Solo se acepta una coincidencia única; agentes ambiguos/no encontrados se ignoran.
+metro_nombres = (
+    df["Nombre de Usuario"].dropna().astype(str).str.strip().drop_duplicates().tolist()
+)
+claves_metro = {}
+for nombre_metro in metro_nombres:
+    clave = normalizar_nombre(nombre_metro)
+    if clave:
+        claves_metro.setdefault(clave, []).append(nombre_metro)
+
+claves_metro_unicas = {
+    clave: nombres[0] for clave, nombres in claves_metro.items() if len(nombres) == 1
+}
+crm["Nombre de Usuario"] = crm["clave_agente"].map(claves_metro_unicas)
+crm = crm[
+    crm["Nombre de Usuario"].notna()
+    & crm["fecha_inicio"].notna()
+    & crm["nro_caso"].notna()
+].copy()
+
+# Un caso se cuenta una sola vez por número de caso.
+crm = crm.drop_duplicates(subset=["nro_caso"], keep="first")
+
+MOTIVOS_CRM = {
+    "CONSULTA": "Consultas",
+    "RECLAMO": "Reclamos",
+    "QUEJA": "Quejas",
+    "SOLICITUD": "Solicitudes",
+    "SOLICITUDES": "Solicitudes",
+    "AGRADECIMIENTO": "Agradecimientos",
+    "SUGERENCIA": "Sugerencias",
+}
+crm["Tipo de caso"] = crm["motivo"].map(MOTIVOS_CRM).fillna("Otros")
+
+# Resumen diario de casos por asistente.
+casos_diarios = (
+    crm.groupby(["Nombre de Usuario", "fecha_inicio"])
+    .agg(Casos_Cargados=("nro_caso", "nunique"))
+    .reset_index()
+    .rename(columns={"fecha_inicio": "Fecha"})
+)
+
+# Desglose diario por tipo de gestión.
+casos_tipos_diarios = (
+    crm.pivot_table(
+        index=["Nombre de Usuario", "fecha_inicio"],
+        columns="Tipo de caso",
+        values="nro_caso",
+        aggfunc="nunique",
+        fill_value=0,
+    )
+    .reset_index()
+    .rename(columns={"fecha_inicio": "Fecha"})
+)
+casos_tipos_diarios.columns.name = None
+
+# Ranking diario de temas (categoria).
+top_temas_diarios = (
+    crm.groupby(["Nombre de Usuario", "fecha_inicio", "categoria"])
+    .size()
+    .reset_index(name="Cantidad")
+    .sort_values(["Nombre de Usuario", "fecha_inicio", "Cantidad", "categoria"],
+                 ascending=[True, True, False, True])
+)
 
 # ==================================================
 # NORMALIZACIÓN Y UNIFICACIÓN DE SUPERVISORES
@@ -264,6 +371,19 @@ mensual = (
     .reset_index()
 )
 
+# Total mensual de casos CRM por asistente (sin desglosar por motivo).
+casos_mes = (
+    crm[
+        (crm["fecha_inicio"].dt.year == anio)
+        & (crm["fecha_inicio"].dt.month == mes_num)
+    ]
+    .groupby("Nombre de Usuario")["nro_caso"]
+    .nunique()
+    .rename("Casos cargados")
+)
+mensual = mensual.merge(casos_mes, on="Nombre de Usuario", how="left")
+mensual["Casos cargados"] = mensual["Casos cargados"].fillna(0).astype(int)
+
 mensual["TMO"] = (
     mensual["Tiempo_Contestadas_Total"]
     .div(mensual["Contestadas"])
@@ -352,6 +472,7 @@ total = pd.DataFrame([{
 COLUMNAS_MENSUAL = [
     "Nombre de Usuario",
     "Contestadas",
+    "Casos cargados",
     "Dias_trabajados",
     "Prom. Contestadas",
     "Prom. Contestadas x Hora",
@@ -509,6 +630,14 @@ if not modo_call:
     asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
     detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
 
+    # Integración de casos CRM en el detalle diario.
+    detalle = detalle.merge(
+        casos_diarios[casos_diarios["Nombre de Usuario"] == asist],
+        on=["Nombre de Usuario", "Fecha"],
+        how="left",
+    )
+    detalle["Casos_Cargados"] = detalle["Casos_Cargados"].fillna(0).astype(int)
+
     # ============================
     # PRODUCTIVIDAD DIARIA
     # ============================
@@ -566,4 +695,35 @@ if not modo_call:
         use_container_width=True,
         height=450
     )
+
+    # Desglose de casos CRM por cada fecha visible del asistente.
+    st.markdown("### 🗂️ Casos CRM por día")
+    for fecha_dia in sorted(detalle["Fecha"].dropna().unique(), reverse=True):
+        fecha_ts = pd.Timestamp(fecha_dia)
+        casos_fecha = crm[
+            (crm["Nombre de Usuario"] == asist)
+            & (crm["fecha_inicio"] == fecha_ts)
+        ]
+        if casos_fecha.empty:
+            continue
+        with st.expander(f"{fecha_ts.strftime('%d/%m/%Y')} · {len(casos_fecha)} casos"):
+            conteo_tipos = (
+                casos_fecha["Tipo de caso"].value_counts()
+                .reindex(["Consultas", "Reclamos", "Quejas", "Solicitudes",
+                          "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
+                .rename_axis("Tipo").reset_index(name="Casos")
+            )
+            st.dataframe(conteo_tipos, hide_index=True, use_container_width=True)
+            st.markdown("**Top 5 temas registrados**")
+            top5 = (
+                casos_fecha["categoria"].value_counts()
+                .head(5).rename_axis("Tema").reset_index(name="Casos")
+            )
+            st.dataframe(top5, hide_index=True, use_container_width=True)
+
+    # Información de control para identificar casos CRM no atribuibles.
+    with st.expander("Control de integración CRM"):
+        st.write(f"Casos CRM totales en el archivo: {len(cargar_casos_crm(st.secrets['DATA']['DATA_CRM_URL']))}")
+        st.write(f"Casos atribuidos a asistentes de DATA METRO: {len(crm)}")
+        st.write(f"Casos ignorados por falta de coincidencia: {len(cargar_casos_crm(st.secrets['DATA']['DATA_CRM_URL'])) - len(crm)}")
 # ==================================================
