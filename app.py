@@ -371,19 +371,6 @@ mensual = (
     .reset_index()
 )
 
-# Total mensual de casos CRM por asistente (sin desglosar por motivo).
-casos_mes = (
-    crm[
-        (crm["fecha_inicio"].dt.year == anio)
-        & (crm["fecha_inicio"].dt.month == mes_num)
-    ]
-    .groupby("Nombre de Usuario")["nro_caso"]
-    .nunique()
-    .rename("Casos cargados")
-)
-mensual = mensual.merge(casos_mes, on="Nombre de Usuario", how="left")
-mensual["Casos cargados"] = mensual["Casos cargados"].fillna(0).astype(int)
-
 mensual["TMO"] = (
     mensual["Tiempo_Contestadas_Total"]
     .div(mensual["Contestadas"])
@@ -472,7 +459,6 @@ total = pd.DataFrame([{
 COLUMNAS_MENSUAL = [
     "Nombre de Usuario",
     "Contestadas",
-    "Casos cargados",
     "Dias_trabajados",
     "Prom. Contestadas",
     "Prom. Contestadas x Hora",
@@ -721,9 +707,42 @@ if not modo_call:
             )
             st.dataframe(top5, hide_index=True, use_container_width=True)
 
-    # Información de control para identificar casos CRM no atribuibles.
-    with st.expander("Control de integración CRM"):
-        st.write(f"Casos CRM totales en el archivo: {len(cargar_casos_crm(st.secrets['DATA']['DATA_CRM_URL']))}")
-        st.write(f"Casos atribuidos a asistentes de DATA METRO: {len(crm)}")
-        st.write(f"Casos ignorados por falta de coincidencia: {len(cargar_casos_crm(st.secrets['DATA']['DATA_CRM_URL'])) - len(crm)}")
 # ==================================================
+
+    # ==================================================
+    # ACUMULADO CRM DEL MES PARA EL ASISTENTE SELECCIONADO
+    # ==================================================
+    crm_asistente_mes = crm[
+        (crm["Nombre de Usuario"] == asist)
+        & (crm["fecha_inicio"].dt.year == anio)
+        & (crm["fecha_inicio"].dt.month == mes_num)
+    ].copy()
+
+    st.markdown("### 📊 Acumulado CRM del período")
+    st.caption(f"{mes_nombre} {anio} · {asist}")
+
+    total_casos_crm = crm_asistente_mes["nro_caso"].nunique()
+    st.metric("Total de casos cargados", f"{total_casos_crm:,}".replace(",", "."))
+
+    if crm_asistente_mes.empty:
+        st.info("No hay casos CRM atribuidos a este asistente durante el período seleccionado.")
+    else:
+        col_crm_tipos, col_crm_temas = st.columns(2)
+        with col_crm_tipos:
+            st.markdown("**Casos por tipo**")
+            acumulado_tipos = (
+                crm_asistente_mes.groupby("Tipo de caso")["nro_caso"]
+                .nunique()
+                .reindex(["Consultas", "Reclamos", "Quejas", "Solicitudes",
+                          "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
+                .rename_axis("Tipo").reset_index(name="Casos")
+            )
+            st.dataframe(acumulado_tipos, hide_index=True, use_container_width=True)
+
+        with col_crm_temas:
+            st.markdown("**Top 5 temas del período**")
+            acumulado_temas = (
+                crm_asistente_mes["categoria"].value_counts()
+                .head(5).rename_axis("Tema").reset_index(name="Casos")
+            )
+            st.dataframe(acumulado_temas, hide_index=True, use_container_width=True)
