@@ -107,7 +107,12 @@ def cargar_casos_crm(url):
     crm["fecha_inicio"] = crm["fecha_inicio"].dt.normalize()
     crm["nro_caso"] = crm["nro_caso"].fillna("").astype(str).str.strip()
     crm["motivo"] = crm["motivo"].astype(str).str.strip().str.upper()
-    crm["categoria"] = crm["categoria"].fillna("SIN CATEGORÍA").astype(str).str.strip()
+    crm["categoria"] = crm["categoria"].fillna("RELLAMADO").astype(str).str.strip()
+    crm["categoria"] = crm["categoria"].replace(
+        to_replace=r"(?i)^SIN CATEGOR[IÍ]A$",
+        value="RELLAMADO",
+        regex=True,
+    )
     crm["agente_crm"] = (
         crm["agente_iniciador_na"].fillna("").astype(str)
         .str.split("-", n=1).str[-1].str.strip()
@@ -513,63 +518,6 @@ COLUMNAS_MENSUAL_OK = [
 mensual_mostrar = mensual[COLUMNAS_MENSUAL_OK]
 
 import altair as alt
-
-    # =============================
-df_sup_base = df_dia.merge(
-        dominante[["Nombre de Usuario","SUPERVISOR"]],
-        on="Nombre de Usuario",
-        how="left"
-    )
-
-resumen_sup = (
-        df_sup_base
-        .groupby("SUPERVISOR")
-        .agg(
-            Contestadas=("Contestadas","sum"),
-            Tiempo_Contestadas_Total=("Tiempo_Contestadas","sum"),
-            Dias_trabajados=("Fecha","nunique"),
-            Tiempo_No_Listo=("Tiempo_No_Listo","mean"),
-        )
-        .reset_index()
-    )
-
-    # =============================
-    # TMO REAL BI
-    # =============================
-resumen_sup["TMO"] = (
-        resumen_sup["Tiempo_Contestadas_Total"]
-        / resumen_sup["Contestadas"]
-    ).replace([pd.NA, pd.NaT, float("inf"), -float("inf")], pd.Timedelta(0))
-
-resumen_sup.drop(columns=["Tiempo_Contestadas_Total"], inplace=True)
-
-    # =============================
-    # Promedio diario real
-    # =============================
-resumen_sup["Prom. Contestadas"] = (
-        resumen_sup["Contestadas"] / resumen_sup["Dias_trabajados"]
-    ).round(0).astype(int)
-
-    # =============================
-    # Formato final
-    # =============================
-resumen_sup["TMO"] = resumen_sup["TMO"].apply(fmt)
-resumen_sup["Tiempo_No_Listo"] = resumen_sup["Tiempo_No_Listo"].apply(fmt)
-
-COLUMNAS_SUP = [
-        "SUPERVISOR",
-        "Contestadas",
-        "Dias_trabajados",
-        "Prom. Contestadas",
-        "TMO",
-        "Tiempo_No_Listo",
-    ]
-
-st.dataframe(
-        resumen_sup.sort_values("Contestadas", ascending=False)[COLUMNAS_SUP],
-        hide_index=True,
-        use_container_width=True
-    )
 
 # ==================================================
 # SALIDA
