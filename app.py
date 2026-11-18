@@ -103,9 +103,9 @@ def normalizar_nombre_metro(valor):
 @st.cache_data(ttl=300)
 def cargar_casos_crm(url):
     crm = pd.read_csv(url, sep=";", encoding="latin1", low_memory=False)
-    crm["fecha_inicio"] = pd.to_datetime(crm["fecha_inicio"], errors="coerce")
+    crm["fecha_inicio"] = pd.to_datetime(crm["fecha_inicio"], errors="coerce", dayfirst=True)
     crm["fecha_inicio"] = crm["fecha_inicio"].dt.normalize()
-    crm["nro_caso"] = crm["nro_caso"].astype(str).str.strip()
+    crm["nro_caso"] = crm["nro_caso"].fillna("").astype(str).str.strip()
     crm["motivo"] = crm["motivo"].astype(str).str.strip().str.upper()
     crm["categoria"] = crm["categoria"].fillna("SIN CATEGORÍA").astype(str).str.strip()
     crm["agente_crm"] = (
@@ -136,11 +136,13 @@ crm["Nombre de Usuario"] = crm["clave_agente"].map(claves_metro_unicas)
 crm = crm[
     crm["Nombre de Usuario"].notna()
     & crm["fecha_inicio"].notna()
-    & crm["nro_caso"].notna()
+    & crm["nro_caso"].ne("")
+    & crm["nro_caso"].str.lower().ne("nan")
 ].copy()
 
-# Un caso se cuenta una sola vez por número de caso.
-crm = crm.drop_duplicates(subset=["nro_caso"], keep="first")
+# Se eliminan solo filas completamente duplicadas. Un mismo nro_caso puede
+# aparecer en otra fecha como RELLAMADO y debe conservarse como registro de gestión.
+crm = crm.drop_duplicates()
 
 MOTIVOS_CRM = {
     "CONSULTA": "Consultas",
@@ -158,7 +160,7 @@ crm["Tipo de caso"] = crm["motivo"].map(MOTIVOS_CRM).fillna("Otros")
 # Resumen diario de casos por asistente.
 casos_diarios = (
     crm.groupby(["Nombre de Usuario", "fecha_inicio"])
-    .agg(Casos_Cargados=("nro_caso", "nunique"))
+    .agg(Casos_Cargados=("nro_caso", "size"))
     .reset_index()
     .rename(columns={"fecha_inicio": "Fecha"})
 )
@@ -169,7 +171,7 @@ casos_tipos_diarios = (
         index=["Nombre de Usuario", "fecha_inicio"],
         columns="Tipo de caso",
         values="nro_caso",
-        aggfunc="nunique",
+        aggfunc="count",
         fill_value=0,
     )
     .reset_index()
@@ -734,7 +736,7 @@ if not modo_call:
     st.markdown("### 📊 Acumulado CRM del período")
     st.caption(f"{mes_nombre} {anio} · {asist}")
 
-    total_casos_crm = crm_asistente_mes["nro_caso"].nunique()
+    total_casos_crm = len(crm_asistente_mes)
     st.metric("Total de casos cargados", f"{total_casos_crm:,}".replace(",", "."))
 
     if crm_asistente_mes.empty:
@@ -744,8 +746,7 @@ if not modo_call:
         with col_crm_tipos:
             st.markdown("**Casos por tipo**")
             acumulado_tipos = (
-                crm_asistente_mes.groupby("Tipo de caso")["nro_caso"]
-                .nunique()
+                crm_asistente_mes.groupby("Tipo de caso").size()
                 .reindex(["Consultas", "Reclamos", "Quejas", "Solicitudes",
                           "Rellamados", "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
                 .rename_axis("Tipo").reset_index(name="Casos")
