@@ -145,9 +145,8 @@ crm = crm[
     & crm["nro_caso"].str.lower().ne("nan")
 ].copy()
 
-# Se eliminan solo filas completamente duplicadas. Un mismo nro_caso puede
-# aparecer en otra fecha como RELLAMADO y debe conservarse como registro de gestión.
-crm = crm.drop_duplicates()
+# Se conservan todas las filas de CRM, incluso cuando coinciden todos sus campos.
+# El tablero cuenta registros/gestiones cargadas, no números de caso únicos.
 
 MOTIVOS_CRM = {
     "CONSULTA": "Consultas",
@@ -261,7 +260,7 @@ SUP_EXCL = {
 ASIST_EXCL = {
     "Laurenzano Renzo","Carranza Fernando","Graf Alejandro",
     "Alvarez Camila","Delgado Claudia",
-    "Gonzalez Company Malena","Parola Federico Javier","Simone Maylen","Ibarra Yamila"
+    "Gonzalez Company Malena","Parola Federico Javier","Simone Maylen",
 }
 
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
