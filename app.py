@@ -521,23 +521,6 @@ import altair as alt
 # ==================================================
 # SALIDA
 # ==================================================
-st.markdown("## 🔹 Total del grupo")
-st.dataframe(total, hide_index=True, use_container_width=True)
-
-# Top 5 de temas CRM del grupo/supervisor en el mes seleccionado.
-st.markdown("### 🏆 Top 5 temas CRM del grupo")
-st.caption(f"{mes_nombre} {anio} · {sup_sel if not modo_call else 'Todos los grupos'}")
-if crm_mes_grupo.empty:
-    st.info("No hay casos CRM atribuidos a este grupo durante el período seleccionado.")
-else:
-    top5_temas_grupo = (
-        crm_mes_grupo["categoria"].value_counts()
-        .head(5)
-        .rename_axis("Tema")
-        .reset_index(name="Casos")
-    )
-    st.dataframe(top5_temas_grupo, hide_index=True, use_container_width=True)
-
 # ==================================================
 # 📊 ACUMULADO ANUAL DE CONTESTADAS
 # ==================================================
@@ -591,6 +574,28 @@ chart = (
 )
 
 st.altair_chart(chart, use_container_width=True)
+
+st.markdown("## 🔹 Total del grupo")
+st.dataframe(total, hide_index=True, use_container_width=True)
+
+
+
+
+# Top 5 de temas CRM del grupo/supervisor en el mes seleccionado.
+st.markdown("### 🏆 Top 5 temas CRM del grupo")
+st.caption(f"{mes_nombre} {anio} · {sup_sel if not modo_call else 'Todos los grupos'}")
+if crm_mes_grupo.empty:
+    st.info("No hay casos CRM atribuidos a este grupo durante el período seleccionado.")
+else:
+    top5_temas_grupo = (
+        crm_mes_grupo["categoria"].value_counts()
+        .head(5)
+        .rename_axis("Tema")
+        .reset_index(name="Casos")
+    )
+    st.dataframe(top5_temas_grupo, hide_index=True, use_container_width=True)
+
+
 
 # ==================================================
 
