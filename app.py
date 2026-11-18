@@ -631,14 +631,6 @@ if not modo_call:
     asist = st.selectbox("Asistente", sorted(df_dia["Nombre de Usuario"].unique()))
     detalle = df_dia[df_dia["Nombre de Usuario"] == asist].copy()
 
-    # Integración de casos CRM en el detalle diario.
-    detalle = detalle.merge(
-        casos_diarios[casos_diarios["Nombre de Usuario"] == asist],
-        on=["Nombre de Usuario", "Fecha"],
-        how="left",
-    )
-    detalle["Casos_Cargados"] = detalle["Casos_Cargados"].fillna(0).astype(int)
-
     # ============================
     # PRODUCTIVIDAD DIARIA
     # ============================
@@ -696,31 +688,6 @@ if not modo_call:
         use_container_width=True,
         height=450
     )
-
-    # Desglose de casos CRM por cada fecha visible del asistente.
-    st.markdown("### 🗂️ Casos CRM por día")
-    for fecha_dia in sorted(detalle["Fecha"].dropna().unique(), reverse=True):
-        fecha_ts = pd.Timestamp(fecha_dia)
-        casos_fecha = crm[
-            (crm["Nombre de Usuario"] == asist)
-            & (crm["fecha_inicio"] == fecha_ts)
-        ]
-        if casos_fecha.empty:
-            continue
-        with st.expander(f"{fecha_ts.strftime('%d/%m/%Y')} · {len(casos_fecha)} casos"):
-            conteo_tipos = (
-                casos_fecha["Tipo de caso"].value_counts()
-                .reindex(["Consultas", "Reclamos", "Quejas", "Solicitudes",
-                          "Rellamados", "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
-                .rename_axis("Tipo").reset_index(name="Casos")
-            )
-            st.dataframe(conteo_tipos, hide_index=True, use_container_width=True)
-            st.markdown("**Top 5 temas registrados**")
-            top5 = (
-                casos_fecha["categoria"].value_counts()
-                .head(5).rename_axis("Tema").reset_index(name="Casos")
-            )
-            st.dataframe(top5, hide_index=True, use_container_width=True)
 
 # ==================================================
 
