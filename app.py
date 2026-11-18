@@ -445,6 +445,17 @@ mensual["Prom. Contestadas x Hora"] = (
 
 mensual = mensual.reset_index()
 
+# Casos CRM del mes por asistente, asignados según el supervisor dominante
+# del período (la misma lógica utilizada para el total CRM del grupo).
+casos_crm_por_asistente = (
+    crm_mes_grupo.groupby("Nombre de Usuario")
+    .size()
+    .rename("Casos CRM")
+    .reset_index()
+)
+mensual = mensual.merge(casos_crm_por_asistente, on="Nombre de Usuario", how="left")
+mensual["Casos CRM"] = mensual["Casos CRM"].fillna(0).astype(int)
+
 for c in ["Prom_T_Log","Prom_T_ACW","Prom_T_Listo","Prom_T_No_Listo","TMO"]:
     mensual[c] = mensual[c].apply(fmt)
 
@@ -498,6 +509,7 @@ total = pd.DataFrame([{
 COLUMNAS_MENSUAL = [
     "Nombre de Usuario",
     "Contestadas",
+    "Casos CRM",
     "Dias_trabajados",
     "Prom. Contestadas",
     "Prom. Contestadas x Hora",
