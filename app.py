@@ -324,6 +324,25 @@ else:
     df_final = df_mes[df_mes["Nombre de Usuario"].isin(asistentes_validos)]
 
 # ==================================================
+# CRM DEL GRUPO / SUPERVISOR EN EL MES SELECCIONADO
+# ==================================================
+# Se asignan los casos al supervisor dominante de cada asistente en el mes,
+# usando la misma lógica de pertenencia que DATA METRO.
+crm_mes_grupo = crm[
+    (crm["fecha_inicio"].dt.year == anio)
+    & (crm["fecha_inicio"].dt.month == mes_num)
+].merge(
+    dominante[["Nombre de Usuario", "SUPERVISOR"]],
+    on="Nombre de Usuario",
+    how="inner"
+)
+
+if not modo_call:
+    crm_mes_grupo = crm_mes_grupo[crm_mes_grupo["SUPERVISOR"] == sup_sel].copy()
+
+cantidad_casos_crm_grupo = len(crm_mes_grupo)
+
+# ==================================================
 # VALIDACIÓN: SIN DATOS
 # ==================================================
 
@@ -465,6 +484,7 @@ total = pd.DataFrame([{
 
     "Reenvios": df_dia["Reenvios"].sum(),
     "Transferencias": df_dia["Transferencias"].sum(),
+    "Casos CRM": cantidad_casos_crm_grupo,
    "TMO": fmt(
     df_dia["Tiempo_Contestadas"].sum() /
     df_dia["Contestadas"].sum()
@@ -556,6 +576,20 @@ st.dataframe(
 # ==================================================
 st.markdown("## 🔹 Total del grupo")
 st.dataframe(total, hide_index=True, use_container_width=True)
+
+# Top 5 de temas CRM del grupo/supervisor en el mes seleccionado.
+st.markdown("### 🏆 Top 5 temas CRM del grupo")
+st.caption(f"{mes_nombre} {anio} · {sup_sel if not modo_call else 'Todos los grupos'}")
+if crm_mes_grupo.empty:
+    st.info("No hay casos CRM atribuidos a este grupo durante el período seleccionado.")
+else:
+    top5_temas_grupo = (
+        crm_mes_grupo["categoria"].value_counts()
+        .head(5)
+        .rename_axis("Tema")
+        .reset_index(name="Casos")
+    )
+    st.dataframe(top5_temas_grupo, hide_index=True, use_container_width=True)
 
 # ==================================================
 # 📊 ACUMULADO ANUAL DE CONTESTADAS
