@@ -73,20 +73,31 @@ import re
 import unicodedata
 
 
-def normalizar_nombre(valor):
-    """Normaliza nombres para cruzar CRM (nombre-apellido) con DATA METRO."""
+def _tokens_nombre(valor):
+    """Limpia y separa los componentes de un nombre."""
     if pd.isna(valor):
-        return ""
+        return []
     texto = str(valor).strip().upper()
     texto = texto.replace("?", "N")  # algunos caracteres ñ llegan dañados en la exportación CRM
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(c for c in texto if not unicodedata.combining(c))
-    tokens = re.findall(r"[A-Z0-9]+", texto)
+    return re.findall(r"[A-Z0-9]+", texto)
+
+
+def normalizar_nombre_crm(valor):
+    """CRM: nombre + segundos nombres + apellido. Usa primer nombre y último apellido."""
+    tokens = _tokens_nombre(valor)
     if len(tokens) < 2:
         return ""
-    # CRM suele traer nombre + segundos nombres + apellido; DATA METRO,
-    # apellido + nombre. Se compara el primer nombre y el último apellido.
     return "|".join(sorted([tokens[0], tokens[-1]]))
+
+
+def normalizar_nombre_metro(valor):
+    """DATA METRO: apellido + nombre(s). Usa primer apellido y primer nombre."""
+    tokens = _tokens_nombre(valor)
+    if len(tokens) < 2:
+        return ""
+    return "|".join(sorted([tokens[0], tokens[1]]))
 
 
 @st.cache_data(ttl=300)
@@ -101,7 +112,7 @@ def cargar_casos_crm(url):
         crm["agente_iniciador_na"].fillna("").astype(str)
         .str.split("-", n=1).str[-1].str.strip()
     )
-    crm["clave_agente"] = crm["agente_crm"].apply(normalizar_nombre)
+    crm["clave_agente"] = crm["agente_crm"].apply(normalizar_nombre_crm)
     return crm
 
 
@@ -114,7 +125,7 @@ metro_nombres = (
 )
 claves_metro = {}
 for nombre_metro in metro_nombres:
-    clave = normalizar_nombre(nombre_metro)
+    clave = normalizar_nombre_metro(nombre_metro)
     if clave:
         claves_metro.setdefault(clave, []).append(nombre_metro)
 
@@ -139,6 +150,8 @@ MOTIVOS_CRM = {
     "SOLICITUDES": "Solicitudes",
     "AGRADECIMIENTO": "Agradecimientos",
     "SUGERENCIA": "Sugerencias",
+    "RELLAMADO": "Rellamados",
+    "RELLAMADOS": "Rellamados",
 }
 crm["Tipo de caso"] = crm["motivo"].map(MOTIVOS_CRM).fillna("Otros")
 
@@ -696,7 +709,7 @@ if not modo_call:
             conteo_tipos = (
                 casos_fecha["Tipo de caso"].value_counts()
                 .reindex(["Consultas", "Reclamos", "Quejas", "Solicitudes",
-                          "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
+                          "Rellamados", "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
                 .rename_axis("Tipo").reset_index(name="Casos")
             )
             st.dataframe(conteo_tipos, hide_index=True, use_container_width=True)
@@ -734,7 +747,7 @@ if not modo_call:
                 crm_asistente_mes.groupby("Tipo de caso")["nro_caso"]
                 .nunique()
                 .reindex(["Consultas", "Reclamos", "Quejas", "Solicitudes",
-                          "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
+                          "Rellamados", "Agradecimientos", "Sugerencias", "Otros"], fill_value=0)
                 .rename_axis("Tipo").reset_index(name="Casos")
             )
             st.dataframe(acumulado_tipos, hide_index=True, use_container_width=True)
