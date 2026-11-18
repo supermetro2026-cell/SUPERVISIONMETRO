@@ -85,11 +85,20 @@ def _tokens_nombre(valor):
 
 
 def normalizar_nombre_crm(valor):
-    """CRM: nombre + segundos nombres + apellido. Usa primer nombre y último apellido."""
+    """Normaliza nombres CRM, contemplando el formato duplicado nombre-apellido-nombre."""
     tokens = _tokens_nombre(valor)
     if len(tokens) < 2:
         return ""
-    return "|".join(sorted([tokens[0], tokens[-1]]))
+
+    # Algunos registros vienen como: NOMBRE APELLIDO NOMBRE SEGUNDO_NOMBRE.
+    # Ej.: CANDELA LUDUEÑA CANDELA ORIANA.
+    if len(tokens) >= 3 and tokens[0] == tokens[2]:
+        partes = [tokens[0], tokens[1]]
+    else:
+        # Formato habitual: nombres y luego apellido(s).
+        partes = [tokens[0], tokens[-1]]
+
+    return "|".join(sorted(partes))
 
 
 def normalizar_nombre_metro(valor):
@@ -260,7 +269,7 @@ SUP_EXCL = {
 ASIST_EXCL = {
     "Laurenzano Renzo","Carranza Fernando","Graf Alejandro",
     "Alvarez Camila","Delgado Claudia",
-    "Gonzalez Company Malena","Parola Federico Javier","Simone Maylen",
+    "Gonzalez Company Malena","Parola Federico Javier","Simone Maylen","Ibarra Yamila"
 }
 
 df = df[~df["SUPERVISOR"].isin(SUP_EXCL)]
@@ -310,12 +319,14 @@ modo_call = (sup_sel == "TODOS (CALL)")
 # SUPERVISOR DOMINANTE
 # ==================================================
 
+# Se conserva el criterio original de supervisor dominante por cantidad de
+# días registrados en DATA METRO, sin filtrar por llamadas contestadas.
 dominante = (
     df_mes
     .groupby(["Nombre de Usuario", "SUPERVISOR"])["Fecha"]
     .nunique()
     .reset_index(name="dias")
-    .sort_values("dias", ascending=False)
+    .sort_values(["Nombre de Usuario", "dias", "SUPERVISOR"], ascending=[True, False, True])
     .drop_duplicates("Nombre de Usuario")
 )
 
