@@ -47,18 +47,29 @@ def fmt(td):
 # CARGA CSV
 # ==================================================
 # ==================================================
-# CARGA CSV - DIAGNÓSTICO
+# CARGA CSV
 # ==================================================
 @st.cache_data
 def cargar_datos(url):
     df = pd.read_csv(url, sep=";", encoding="latin1")
+    df.columns = df.columns.str.strip()
+    df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
+
+    columnas_tiempo = [
+        "Tiempo en Llamadas Contestadas",
+        "Tiempo Logueado",
+        "Tiempo ACW",
+        "Tiempo Estado Listo",
+        "Tiempo Estado No Listo",
+        "Tiempo Hold",
+    ]
+    for c in columnas_tiempo:
+        df[c] = df[c].apply(to_td)
+
     return df
 
 df = cargar_datos(st.secrets["DATA"]["DATA_METRO_URL"])
 
-st.write("COLUMNAS RECIBIDAS:", [repr(c) for c in df.columns])
-st.write("PRIMERAS FILAS:", df.head(3))
-st.stop()
 # ==================================================
 # CARGA Y NORMALIZACIÓN DE CASOS CRM
 # ==================================================
