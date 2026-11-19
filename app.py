@@ -113,34 +113,41 @@ def normalizar_nombre_metro(valor):
     return "|".join(sorted([tokens[0], tokens[1]]))
 
 
-# ==================================================
-# CARGA DE ASISTENCIA (XLSX)
-# ==================================================
 @st.cache_data(ttl=300)
 def cargar_asistencia(url):
-    # Google Sheets exporta el archivo como CSV. Se detecta automáticamente
-    # si el separador es coma o punto y coma.
-    asistencia = pd.read_csv(
-        url,
-        sep=None,
-        engine="python",
-        encoding="utf-8-sig",
-    )
+    try:
+        asistencia = pd.read_csv(
+            url,
+            sep=None,
+            engine="python",
+            encoding="utf-8-sig",
+        )
+    except UnicodeDecodeError:
+        asistencia = pd.read_csv(
+            url,
+            sep=None,
+            engine="python",
+            encoding="latin1",
+        )
 
     columnas_necesarias = ["Fecha", "Asistente", "Franquicia_Detalle"]
     faltantes = [c for c in columnas_necesarias if c not in asistencia.columns]
+
     if faltantes:
         raise ValueError(
-            "Faltan columnas en DATA ASISTENCIA.xlsx: " + ", ".join(faltantes)
+            "Faltan columnas en DATA ASISTENCIA: " + ", ".join(faltantes)
         )
 
     asistencia = asistencia[columnas_necesarias].copy()
+
     asistencia["Fecha"] = pd.to_datetime(
         asistencia["Fecha"], errors="coerce", dayfirst=True
     ).dt.normalize()
+
     asistencia["clave_asistente"] = asistencia["Asistente"].apply(
         normalizar_nombre_metro
     )
+
     asistencia["Franquicia_Detalle"] = (
         asistencia["Franquicia_Detalle"]
         .fillna("")
@@ -153,7 +160,6 @@ def cargar_asistencia(url):
         & asistencia["clave_asistente"].ne("")
     ].copy()
 
-    # Una sola fila por asistente y fecha, evitando duplicar registros de DATA METRO.
     asistencia = (
         asistencia.groupby(["Fecha", "clave_asistente"])["Franquicia_Detalle"]
         .agg(lambda valores: " · ".join(dict.fromkeys(
@@ -163,7 +169,6 @@ def cargar_asistencia(url):
     )
 
     return asistencia
-
 
 asistencia = cargar_asistencia(st.secrets["DATA"]["DATA_ASISTENCIA_URL"])
 
