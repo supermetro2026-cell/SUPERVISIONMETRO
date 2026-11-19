@@ -109,6 +109,58 @@ def normalizar_nombre_metro(valor):
     return "|".join(sorted([tokens[0], tokens[1]]))
 
 
+# ==================================================
+# CARGA DE ASISTENCIA (XLSX)
+# ==================================================
+@st.cache_data(ttl=300)
+def cargar_asistencia(url):
+    asistencia = pd.read_excel(
+        url,
+        sheet_name="Novedades",
+        engine="openpyxl",
+    )
+
+    columnas_necesarias = ["Fecha", "Asistente", "Franquicia_Detalle"]
+    faltantes = [c for c in columnas_necesarias if c not in asistencia.columns]
+    if faltantes:
+        raise ValueError(
+            "Faltan columnas en DATA ASISTENCIA.xlsx: " + ", ".join(faltantes)
+        )
+
+    asistencia = asistencia[columnas_necesarias].copy()
+    asistencia["Fecha"] = pd.to_datetime(
+        asistencia["Fecha"], errors="coerce", dayfirst=True
+    ).dt.normalize()
+    asistencia["clave_asistente"] = asistencia["Asistente"].apply(
+        normalizar_nombre_metro
+    )
+    asistencia["Franquicia_Detalle"] = (
+        asistencia["Franquicia_Detalle"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    asistencia = asistencia[
+        asistencia["Fecha"].notna()
+        & asistencia["clave_asistente"].ne("")
+    ].copy()
+
+    # Una sola fila por asistente y fecha, evitando duplicar registros de DATA METRO.
+    asistencia = (
+        asistencia.groupby(["Fecha", "clave_asistente"])["Franquicia_Detalle"]
+        .agg(lambda valores: " · ".join(dict.fromkeys(
+            v for v in valores if v and v.lower() != "nan"
+        )))
+        .reset_index()
+    )
+
+    return asistencia
+
+
+asistencia = cargar_asistencia(st.secrets["DATA"]["DATA_ASISTENCIA_URL"])
+
+
 @st.cache_data(ttl=300)
 def cargar_casos_crm(url):
     crm = pd.read_csv(url, sep=";", encoding="latin1", low_memory=False)
@@ -384,6 +436,24 @@ df_dia = (
     )
     .reset_index()
 )
+
+# Cruce con asistencia por fecha y nombre normalizado.
+# El cruce solo agrega Franquicia_Detalle al detalle diario.
+df_dia["clave_asistente"] = df_dia["Nombre de Usuario"].apply(
+    normalizar_nombre_metro
+)
+df_dia["Fecha"] = df_dia["Fecha"].dt.normalize()
+
+df_dia = df_dia.merge(
+    asistencia,
+    on=["Fecha", "clave_asistente"],
+    how="left",
+)
+
+df_dia["Franquicia_Detalle"] = (
+    df_dia["Franquicia_Detalle"].fillna("").replace("", "—")
+)
+df_dia.drop(columns=["clave_asistente"], inplace=True)
 
 # ============================
 # TMO DIARIO
@@ -672,6 +742,7 @@ if not modo_call:
         "TMO",
         "Tiempo_Contestadas",
         "Tiempo_Logueado",
+        "Franquicia_Detalle",
         "Tiempo_ACW",
         "Tiempo_hold",
         "Tiempo_Listo",
