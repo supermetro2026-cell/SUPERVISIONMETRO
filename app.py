@@ -114,10 +114,13 @@ def normalizar_nombre_metro(valor):
 # ==================================================
 @st.cache_data(ttl=300)
 def cargar_asistencia(url):
-    asistencia = pd.read_excel(
+    # Google Sheets exporta el archivo como CSV. Se detecta automáticamente
+    # si el separador es coma o punto y coma.
+    asistencia = pd.read_csv(
         url,
-        sheet_name="Novedades",
-        engine="openpyxl",
+        sep=None,
+        engine="python",
+        encoding="utf-8-sig",
     )
 
     columnas_necesarias = ["Fecha", "Asistente", "Franquicia_Detalle"]
